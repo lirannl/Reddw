@@ -5,8 +5,6 @@ use std::{
     path::PathBuf,
 };
 
-use crate::db::{populate_config, ConnHolder};
-
 use tauri::{App, Manager};
 use window_vibrancy::apply_mica;
 #[cfg(target_os = "macos")]
@@ -27,10 +25,10 @@ pub async fn reddw_setup(app: &mut App) -> Result<(), Box<dyn Error + Sync + Sen
         .app_dir()
         .ok_or("Failed to get config folder")?;
     ensure_dir_exists(&config_folder)?;
-    populate_config(app.app_handle())?;
+    // populate_config(app.app_handle())?;
 
     let window = app.get_window("main").unwrap();
-
+    window.open_devtools();
     #[cfg(target_os = "macos")]
     apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow)
         .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
