@@ -1,11 +1,11 @@
 [package]
-name = "app"
+name = "reddw"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A wallpaper changer"
+authors = ["Liran Piade"]
 license = ""
 repository = ""
-default-run = "app"
+default-run = "reddw"
 edition = "2021"
 rust-version = "1.57"
 
@@ -22,6 +22,7 @@ libsqlite3-sys = { version = "^0", features = [ "bundled"] }
 diesel = { version = "2.0.0", features = ["sqlite"] }
 window-vibrancy = "0.1.3"
 rand = "0.8.4"
+ts-rs = {version = "^6.1", features = ["serde-compat"] }
 
 [features]
 # by default Tauri runs in production mode
@@ -30,3 +31,6 @@ default = [ "custom-protocol" ]
 # this feature is used used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = [ "tauri/custom-protocol" ]
+
+[profile.release]
+strip = true 

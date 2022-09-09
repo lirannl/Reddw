@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api";
 import { createResource, createSignal, createEffect, For } from "solid-js";
 import { TransitionGroup } from "solid-transition-group";
+import { Source } from "../src-tauri/bindings/Source";
 
 const Sources = () => {
-    const [sources, { refetch }] = createResource<{ subreddit: string, id: number }[]>(() => invoke('get_sources'));
+    const [sources, { refetch }] = createResource<Source[]>(() => invoke('get_sources'));
     const [error, setError] = createSignal<string>();
 
     // Make errors last 1000ms
@@ -14,7 +15,7 @@ const Sources = () => {
     })
     return (
         <div>
-            {sources() && <TransitionGroup name="slide">
+            {sources() && <TransitionGroup name="fade">
                 <For each={sources()}>
                     {source => <div>{source.subreddit}<button onClick={() => invoke("delete_source", { doomedId: source.id })
                         .then(refetch)}>-</button></div>}

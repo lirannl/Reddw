@@ -1,10 +1,10 @@
+use std::error::Error;
+
 use crate::models::*;
 use diesel::{delete, insert_into, prelude::*};
-use tauri::AppHandle;
+use tauri::{App, AppHandle};
 
-type Error = Box<dyn std::error::Error>;
-
-trait ConnHolder {
+pub trait ConnHolder {
     fn get_conn(&self) -> Result<SqliteConnection, String>;
 }
 
@@ -38,7 +38,7 @@ pub fn get_sources(app: AppHandle) -> Result<Vec<Source>, String> {
 #[tauri::command]
 pub fn add_source(app: AppHandle, source: NewSource) -> Result<(), String> {
     use crate::schema::sources::dsl::*;
-    let t = insert_into(sources)
+    insert_into(sources)
         .values(&source)
         .execute(&mut app.get_conn()?)
         .or_else(|e| Err(format!("{}", e.to_string())))?;
@@ -48,8 +48,18 @@ pub fn add_source(app: AppHandle, source: NewSource) -> Result<(), String> {
 #[tauri::command]
 pub fn delete_source(app: AppHandle, doomed_id: i32) -> Result<(), String> {
     use crate::schema::sources::dsl::*;
-    let t = delete(sources.filter(id.eq(doomed_id)))
+    delete(sources.filter(id.eq(doomed_id)))
         .execute(&mut app.get_conn()?)
         .or_else(|e| Err(format!("{}", e.to_string())))?;
+    Ok(())
+}
+
+pub fn populate_config(app: AppHandle) -> Result<(), Box<dyn Error + Send + Sync>> {
+    use crate::schema::config::dsl::*;
+    let mut conn = app.get_conn()?;
+    if (config.load::<Config>(&mut conn).or_else(|err| {
+        Err(err)})?.len() == 0) {
+        insert_into(config).values(Config::default()).execute(&mut conn)?;
+    }
     Ok(())
 }
