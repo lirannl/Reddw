@@ -1,11 +1,9 @@
-import { invoke } from '@tauri-apps/api'
+import Sources from "./Sources";
 
 function App() {
-  return (
-    <div>
-      Initial Tauri + SolidJS app
-    </div>
-  );
+  return <>
+    <Sources />
+  </>
 }
 
 export default App;
