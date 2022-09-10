@@ -27,10 +27,16 @@ pub async fn add_source(app: tauri::AppHandle, source: source::Model) -> Result<
 async fn p_add_source(app: tauri::AppHandle, source: source::Model) -> Result<(), DbErr> {
     let conn = get_connection(&app)?;
 
-    if vec![&source.subreddit].into_iter().all(|s| s.is_none()) {
-        return Err(DbErr::Type("Invalid source".to_string()));
+    if vec![&source.subreddit]
+        .into_iter()
+        .map(|s| s.as_ref())
+        .any(|s| match s {
+            Some(s) => s.is_empty(),
+            None => false,
+        })
+    {
+        return Err(DbErr::Type("Missing value".to_string()));
     }
-
     source::ActiveModel {
         subreddit: Set(source.subreddit),
         ..Default::default()

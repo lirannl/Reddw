@@ -14,7 +14,8 @@
             "command": "pnpm",
             "args": [
                 "dev"
-            ]
+            ],
+            "problemMatcher": "$tsc-watch"
         },
         {
             "label": "ui:build",
