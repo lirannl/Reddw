@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "forceConsistentCasingInFileNames": true,
+    "strictNullChecks": true,
     "strict": true,
+    "moduleResolution": "Node",
     "jsx": "preserve",
     "jsxImportSource": "solid-js"
   }

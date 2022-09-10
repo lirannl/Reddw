@@ -1,3 +1,6 @@
 node_modules
 dist
-src-tauri/src/.env
+.env
+entity/target
+src-tauri/target
+migration/target

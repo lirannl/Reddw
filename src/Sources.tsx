@@ -1,11 +1,21 @@
 import { invoke } from "@tauri-apps/api";
 import { createResource, createSignal, createEffect, For } from "solid-js";
 import { TransitionGroup } from "solid-transition-group";
-import { Source } from "../src-tauri/bindings/Source";
+import { createForm } from "./utils/Form";
 
 const Sources = () => {
     const [sources, { refetch }] = createResource<Source[]>(() => invoke('get_sources'));
     const [error, setError] = createSignal<string>();
+    const { Form, fieldProps } = createForm<Source>({
+        onSubmit: async (source) => {
+            try {
+                await invoke('add_source', { source });
+                refetch();
+            } catch (e: any) {
+                setError(e);
+            }
+        }
+    })
 
     // Make errors last 1000ms
     createEffect(() => {
@@ -13,24 +23,20 @@ const Sources = () => {
             setTimeout(setError, 1000);
         }
     })
+
     return (
         <div>
             {sources() && <TransitionGroup name="fade">
                 <For each={sources()}>
-                    {source => <div>{source.subreddit}<button onClick={() => invoke("delete_source", { doomedId: source.id })
+                    {source => <div>{source.subreddit}<button onClick={() => invoke("remove_source", { id: source.id })
                         .then(refetch)}>-</button></div>}
                 </For>
             </TransitionGroup>}
-            <form onSubmit={async event => {
-                event.preventDefault();
-                const source = { subreddit: event.currentTarget["subreddit"].value }
-                event.currentTarget["subreddit"].value = "";
-                invoke("add_source", { source }).then(refetch).catch(setError);
-            }}>
-                <input placeholder="Subreddit" name="subreddit" />
+            <Form>
+                <input {...fieldProps("subreddit")} />
                 <button type="submit">+</button>
                 {typeof error() !== "undefined" && <span class="error">{error()}</span>}
-            </form>
+            </Form>
         </div>
     );
 }
