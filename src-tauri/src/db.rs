@@ -69,8 +69,28 @@ pub async fn get_config(app: tauri::AppHandle) -> Result<config::Model, String> 
 async fn p_get_config(app: tauri::AppHandle) -> Result<config::Model, DbErr> {
     let conn = get_connection(&app)?;
     let config = config::Entity::find()
-    .one(conn)
-    .await?
-    .ok_or(DbErr::RecordNotFound("No config found".to_string()))?;
+        .one(conn)
+        .await?
+        .ok_or(DbErr::RecordNotFound("No config found".to_string()))?;
     Ok(config)
+}
+
+#[tauri::command]
+pub async fn update_config(app: tauri::AppHandle, update: config::Model) -> Result<(), String> {
+    p_update_config(app, update)
+        .await
+        .or_else(|e| Err(e.to_string()))
+}
+async fn p_update_config(app: tauri::AppHandle, update: config::Model) -> Result<(), DbErr> {
+    let conn = get_connection(&app)?;
+    let mut config = config::Entity::find()
+        .one(conn)
+        .await?
+        .ok_or(DbErr::RecordNotFound("No config found".to_string()))?
+        .into_active_model();
+
+    config.allow_nsfw = Set(update.allow_nsfw);
+    
+    config.update(conn).await?;
+    Ok(())
 }

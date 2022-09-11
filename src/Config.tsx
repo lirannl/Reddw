@@ -7,13 +7,16 @@ const ConfigComponent = () => {
     const { Form, state, fieldProps } = createForm(
         (e: Config) => ({ allow_nsfw: e.allow_nsfw ? "on" : "" }),
         f => ({ allow_nsfw: f.allow_nsfw === "on" ? 1 : 0 }),
-        config());
-    createEffect(() => { console.log(state()) })
+        config()
+    );
     return <>
         <Form>
             <input type="checkbox" title="Allow NSFW" {...fieldProps("allow_nsfw")} />
+            <br />
             <button onClick={() => {
-                invoke("set_config", state()).then(refetch);
+                const update = state()
+                if (update)
+                    invoke("update_config", { update }).then(refetch);
             }}>Save</button>
         </Form>
     </>

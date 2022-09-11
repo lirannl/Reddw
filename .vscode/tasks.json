@@ -4,6 +4,19 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "cargo:dev",
+            "type": "shell",
+            "command": "cargo",
+            "args": [
+                "build",
+                "--manifest-path=./src-tauri/Cargo.toml",
+                "--no-default-features"
+            ],
+            // "dependsOn": [
+            //     "ui:dev"
+            // ],
+        },
+        {
             "label": "ui:dev",
             "type": "shell",
             // `dev` keeps running in the background
