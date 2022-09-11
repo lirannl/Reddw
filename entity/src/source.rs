@@ -8,6 +8,7 @@ use ts_rs::TS;
 #[sea_orm(table_name = "source")]
 pub struct Model {
     #[sea_orm(primary_key)]
+    #[serde(skip_deserializing)]
     pub id: i32,
     pub subreddit: Option<String>,
 }
