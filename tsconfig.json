@@ -4,6 +4,7 @@
     "strictNullChecks": true,
     "strict": true,
     "moduleResolution": "Node",
+    "lib": ["es2017", "DOM.Iterable", "DOM"],
     "jsx": "preserve",
     "jsxImportSource": "solid-js"
   }

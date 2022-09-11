@@ -3,21 +3,20 @@ import { createEffect, createResource } from "solid-js";
 import { createForm } from "./utils/Form";
 
 const ConfigComponent = () => {
-    const [config, { refetch, mutate }] = createResource<Config>(() => invoke("get_config"));
-    const { fieldProps } = createForm({ value: config() });
-    createEffect(() => { console.log(config()) })
-    return <form onChange={e => {
-        const formData = {} as unknown as { allow_nsfw?: "on" };
-        new FormData(e.currentTarget).forEach((value, key) => {
-            //@ts-ignore
-            formData[key] = value;
-        });
-        mutate({
-            allow_nsfw: formData.allow_nsfw === "on" ? 1 : 0,
-        })
-    }}>
-        <input type="checkbox" {...fieldProps("allow_nsfw")} />
-    </form>
+    const [config, { refetch }] = createResource<Config>(() => invoke("get_config"));
+    const { Form, state, fieldProps } = createForm(
+        (e: Config) => ({ allow_nsfw: e.allow_nsfw ? "on" : "" }),
+        f => ({ allow_nsfw: f.allow_nsfw === "on" ? 1 : 0 }),
+        config());
+    createEffect(() => { console.log(state()) })
+    return <>
+        <Form>
+            <input type="checkbox" title="Allow NSFW" {...fieldProps("allow_nsfw")} />
+            <button onClick={() => {
+                invoke("set_config", state()).then(refetch);
+            }}>Save</button>
+        </Form>
+    </>
 }
 
 export default ConfigComponent;

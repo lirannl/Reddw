@@ -12,6 +12,7 @@ specifiers:
   lodash: ^4.17.21
   solid-js: ^1.4.7
   solid-transition-group: ^0.0.11
+  typesafe-object-paths: ^1.0.0
   typescript: ^4.7.4
   vite: ^3.0.0
   vite-plugin-eslint: ^1.8.0
@@ -22,6 +23,7 @@ dependencies:
   lodash: 4.17.21
   solid-js: 1.5.1
   solid-transition-group: 0.0.11_solid-js@1.5.1
+  typesafe-object-paths: 1.0.0
 
 devDependencies:
   '@tauri-apps/cli': 1.0.5
@@ -2181,6 +2183,10 @@ packages:
     resolution: {integrity: sha512-Ne+eE4r0/iWnpAxD852z3A+N0Bt5RN//NjJwRd2VFHEmrywxf5vsZlh4R6lixl6B+wz/8d+maTSAkN1FIkI3LQ==}
     engines: {node: '>=10'}
     dev: true
+
+  /typesafe-object-paths/1.0.0:
+    resolution: {integrity: sha512-8VCE0+qjRG1vfqjyd7mFG+1eFmamJ6wExG6Qo1Rw0aq+C+ZKPaqBRfF7YL7YxoTkq/7JD3gS/xzs6Xwkkte0iA==}
+    dev: false
 
   /typescript/4.8.2:
     resolution: {integrity: sha512-C0I1UsrrDHo2fYI5oaCGbSejwX4ch+9Y5jTQELvovfmFkK3HHSZJB8MSJcWLmCUBzQBchCrZ9rMRV6GuNrvGtw==}

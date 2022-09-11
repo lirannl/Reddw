@@ -1,21 +1,10 @@
 import { invoke } from "@tauri-apps/api";
 import { createResource, createSignal, createEffect, For } from "solid-js";
 import { TransitionGroup } from "solid-transition-group";
-import { createForm } from "./utils/Form";
 
 const Sources = () => {
     const [sources, { refetch }] = createResource<Source[]>(() => invoke('get_sources'));
     const [error, setError] = createSignal<string>();
-    const { Form, fieldProps } = createForm<Source>({
-        onSubmit: async (source) => {
-            try {
-                await invoke('add_source', { source });
-                refetch();
-            } catch (e: any) {
-                setError(e);
-            }
-        }
-    })
 
     // Make errors last 1000ms
     createEffect(() => {
@@ -32,11 +21,15 @@ const Sources = () => {
                         .then(refetch)}>-</button></div>}
                 </For>
             </TransitionGroup>}
-            <Form>
-                <input {...fieldProps("subreddit")} />
+            <form onSubmit={e => {
+                e.preventDefault();
+                const formData = Object.fromEntries(new FormData(e.currentTarget).entries());
+                invoke("add_source", { source: formData }).then(refetch).catch(setError);
+            }}>
+                <input placeholder="Subreddit" name="subreddit" />
                 <button type="submit">+</button>
-                {typeof error() !== "undefined" && <span class="error">{error()}</span>}
-            </Form>
+            </form>
+            {typeof error() !== "undefined" && <span class="error">{error()}</span>}
         </div>
     );
 }

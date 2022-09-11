@@ -1,23 +1,34 @@
-import { get, merge, mergeWith } from "lodash";
-import { JSX, mergeProps, splitProps } from "solid-js";
+import { get } from "lodash";
+import { createEffect, createSignal } from "solid-js";
+import { JSX } from "solid-js/jsx-runtime"
+import { NestedKeyOf, PathOf } from "typesafe-object-paths";
 
-export const createForm = <E extends object,>(params: { value?: E | undefined, onSubmit?: (value: E) => unknown }) => {
-    const Form = (props: Omit<JSX.HTMLAttributes<HTMLFormElement>, "onSubmit">) => <form onSubmit={e => {
-        e.preventDefault();
-        if (!params.onSubmit) return;
-        const formData = new FormData(e.currentTarget);
-        const form: Record<string, unknown> = {};
-        formData.forEach((value, key) => {
-            form[key] = value;
-        });
-        e.currentTarget.reset();
-        params.onSubmit(form as unknown as E);
-    }} {...props} />
-    const fieldProps = <Field extends keyof E,>(field: Field) => ({
-        value: get(params.value, field) ?? undefined as unknown as Exclude<E[Field], null> |
-            null extends E[Field] ? undefined : never,
-        name: field as string,
+export const createForm = <Entity extends object,
+    FormSchema extends Record<NestedKeyOf<Entity>, FormDataEntryValue>>(
+        entityToSchema: (e: Entity) => FormSchema,
+        schemaToEntity: (f: FormSchema) => Entity,
+        entity?: Entity,
+) => {
+    const [formState, setFormState] = createSignal({ external: true } as { external: boolean, state: FormSchema });
+    const fieldProps = <K extends NestedKeyOf<FormSchema>>(key: K) => ({
+        name: key,
+        value: get(formState(), key) as PathOf<FormSchema, K>
     })
+    const state = () => { if (formState().state) return schemaToEntity(formState().state) };
+    createEffect(() => {
+        if (entity && formState().external)
+            setFormState({ external: true, state: entityToSchema(entity) })
+    });
 
-    return { Form, fieldProps }
+    return {
+        Form: (props: Omit<JSX.HTMLAttributes<HTMLFormElement>, "onChange">) =>
+            <form onChange={e => {
+                const formData = Object.fromEntries(new FormData(e.currentTarget).entries()) as FormSchema;
+                setFormState({ external: false, state: formData });
+            }} onSubmit={e => { e.preventDefault(); }}
+                {...props} />,
+        formState,
+        state,
+        fieldProps,
+    }
 }

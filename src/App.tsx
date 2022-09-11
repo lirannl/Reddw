@@ -1,5 +1,4 @@
-import { invoke } from "@tauri-apps/api";
-import { createResource, lazy, Suspense } from "solid-js";
+import { lazy, Suspense } from "solid-js";
 import Sources from "./Sources";
 
 function App() {
