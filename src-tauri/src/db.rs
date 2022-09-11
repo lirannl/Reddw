@@ -1,4 +1,4 @@
-use entity::source;
+use entity::{config, source};
 use migration::DbErr;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, IntoActiveModel, Set};
 use tauri::{AppHandle, Manager};
@@ -60,4 +60,17 @@ async fn p_remove_source(app: tauri::AppHandle, id: i32) -> Result<(), DbErr> {
         .ok_or(DbErr::RecordNotFound("Not found.".to_string()))?;
     source.into_active_model().delete(conn).await?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_config(app: tauri::AppHandle) -> Result<config::Model, String> {
+    p_get_config(app).await.or_else(|e| Err(e.to_string()))
+}
+async fn p_get_config(app: tauri::AppHandle) -> Result<config::Model, DbErr> {
+    let conn = get_connection(&app)?;
+    let config = config::Entity::find()
+    .one(conn)
+    .await?
+    .ok_or(DbErr::RecordNotFound("No config found".to_string()))?;
+    Ok(config)
 }

@@ -5,11 +5,13 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, TS)]
-#[sea_orm(table_name = "source")]
+#[ts(export_to = "Config")]
+#[sea_orm(table_name = "config")]
 pub struct Model {
     #[sea_orm(primary_key)]
+    #[serde(skip)]
     pub id: i32,
-    pub subreddit: Option<String>,
+    pub allow_nsfw: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

@@ -1,11 +1,11 @@
 import { invoke } from "@tauri-apps/api";
-import { createResource } from "solid-js";
-// import Config from "./Config";
+import { createResource, lazy, Suspense } from "solid-js";
 import Sources from "./Sources";
 
 function App() {
   return <>
-    {/* <Config /> */}
+    <Suspense fallback={<div>Loading...</div>}>
+      {lazy(() => import("./Config"))}</Suspense>
     <Sources />
   </>
 }

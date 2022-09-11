@@ -12,12 +12,17 @@ use setup::reddw_setup;
 use std::error::Error;
 use tauri::async_runtime::block_on;
 
-use crate::db::{add_source, get_sources, remove_source};
+use crate::db::{add_source, get_sources, remove_source, get_config};
 
 fn main() {
     tauri::Builder::default()
         .setup(|app| block_on(reddw_setup(app)).or_else(|e| Err(e as Box<dyn Error>)))
-        .invoke_handler(tauri::generate_handler![get_sources, add_source, remove_source])
+        .invoke_handler(tauri::generate_handler![
+            get_sources,
+            add_source,
+            remove_source,
+            get_config
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

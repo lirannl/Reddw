@@ -5,8 +5,9 @@ use std::{
     path::PathBuf,
 };
 
+use entity::config;
 use migration::{Migrator, MigratorTrait};
-use sea_orm::{Database, DatabaseConnection};
+use sea_orm::{ActiveModelTrait, Database, DatabaseConnection, EntityTrait, Set};
 use tauri::{App, Manager};
 use window_vibrancy::apply_mica;
 #[cfg(target_os = "macos")]
@@ -32,13 +33,24 @@ pub async fn reddw_setup(app: &mut App) -> Result<(), Box<dyn Error + Sync + Sen
         let appdir = app.path_resolver().app_dir().ok_or("Invalid app dir")?;
         let url = format!(
             "sqlite://{}?mode=rwc",
-            appdir.join("reddw.db").to_str().unwrap()
+            appdir.join("app.sqlite").to_str().unwrap()
         );
         url
     };
 
     let conn = Database::connect(&url).await?;
+
     Migrator::up(&conn, None).await?;
+    
+    // If config is empty, create a default one
+    if config::Entity::find().all(&conn).await?.is_empty() {
+        config::ActiveModel {
+            allow_nsfw: Set(0),
+            ..Default::default()
+        }
+        .insert(&conn)
+        .await?;
+    }
 
     app.manage::<DatabaseConnection>(conn);
 

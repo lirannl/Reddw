@@ -2,4 +2,5 @@
 
 pub mod prelude;
 
+pub mod config;
 pub mod source;
