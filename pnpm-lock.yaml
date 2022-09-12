@@ -12,6 +12,7 @@ specifiers:
   lodash: ^4.17.21
   solid-js: ^1.4.7
   solid-transition-group: ^0.0.11
+  ts-pattern: ^4.0.5
   typesafe-object-paths: ^1.0.0
   typescript: ^4.7.4
   vite: ^3.0.0
@@ -33,6 +34,7 @@ devDependencies:
   '@typescript-eslint/parser': 5.36.2_yqf6kl63nyoq5megxukfnom5rm
   eslint: 8.23.0
   eslint-plugin-solid: 0.7.1_yqf6kl63nyoq5megxukfnom5rm
+  ts-pattern: 4.0.5
   typescript: 4.8.2
   vite: 3.0.9
   vite-plugin-eslint: 1.8.1_eslint@8.23.0+vite@3.0.9
@@ -2152,6 +2154,10 @@ packages:
     engines: {node: '>=8.0'}
     dependencies:
       is-number: 7.0.0
+    dev: true
+
+  /ts-pattern/4.0.5:
+    resolution: {integrity: sha512-Bq44KCEt7JVaNLa148mBCJkcQf4l7jtLEBDuDdeuLynWDA+1a60P4D0rMkqSM9mOKLQbIWUddE9h3XKyKwBeqA==}
     dev: true
 
   /ts-toolbelt/9.6.0:

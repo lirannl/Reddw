@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "solid-js";
+import ConfigComponent from "./Config";
 import Sources from "./Sources";
 
 function App() {
   return <>
-    <Suspense fallback={<div>Loading...</div>}>{lazy(() => import("./Config"))}</Suspense>
+    <ConfigComponent />
     <Sources />
   </>
 }
