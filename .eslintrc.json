@@ -8,6 +8,8 @@
         "plugin:@typescript-eslint/recommended",
         "plugin:solid/typescript"
     ],
+    "overrides": [
+    ],
     "parser": "@typescript-eslint/parser",
     "parserOptions": {
         "ecmaVersion": "latest",
@@ -18,9 +20,7 @@
         "solid"
     ],
     "rules": {
-        "@typescript-eslint/no-non-null-assertion": "off",
-        "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-ts-comment": "off",
-        "solid/reactivity": "error"
+        "@typescript-eslint/no-explicit-any": "off"
     }
 }

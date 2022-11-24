@@ -1,11 +1,10 @@
-import ConfigComponent from "./Config";
-import Sources from "./Sources";
+import { Component, createSignal } from 'solid-js';
+import { Config } from "./Config";
 
-function App() {
+const App: Component = () => {
   return <>
-    <ConfigComponent />
-    <Sources />
-  </>
-}
+  <Config/>
+  </>;
+};
 
 export default App;

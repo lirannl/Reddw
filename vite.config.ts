@@ -1,9 +1,10 @@
+// @ts-nocheck
 import { defineConfig } from 'vite';
 import solidPlugin from 'vite-plugin-solid';
-import eslint from 'vite-plugin-eslint'
+import eslintPlugin from 'vite-plugin-eslint';
 
 export default defineConfig({
-  plugins: [solidPlugin(), eslint()],
+  plugins: [solidPlugin(), eslintPlugin()],
   // prevent vite from obscuring rust errors
   clearScreen: false,
   // Tauri expects a fixed port, fail if that port is not available

@@ -5,26 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "lldb",
+            "type": "msedge",
             "request": "launch",
-            "name": "Tauri Development Debug",
-            "program": "${workspaceFolder}/src-tauri/target/debug/reddw.exe",
-            // task for the `beforeBuildCommand` if used, must be configured in `.vscode/tasks.json`
-            "preLaunchTask": "cargo:dev"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Tauri Production Debug",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--release",
-                    "--manifest-path=./src-tauri/Cargo.toml"
-                ]
-            },
-            // task for the `beforeBuildCommand` if used, must be configured in `.vscode/tasks.json`
-            "preLaunchTask": "ui:build"
+            "name": "Launch Edge against localhost",
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}"
         }
     ]
 }

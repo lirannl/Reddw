@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
-    "forceConsistentCasingInFileNames": true,
-    "strictNullChecks": true,
     "strict": true,
-    "moduleResolution": "Node",
-    "lib": ["es2017", "DOM.Iterable", "DOM"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "jsxImportSource": "solid-js",
+    "types": ["vite/client"],
+    "noEmit": true,
+    "isolatedModules": true
   }
 }
