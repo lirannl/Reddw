@@ -1,11 +1,11 @@
 [package]
-name = "app"
+name = "reddw"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A wallpaper changer"
+authors = ["Liran Piade"]
 license = ""
 repository = ""
-default-run = "app"
+default-run = "reddw"
 edition = "2021"
 rust-version = "1.59"
 
@@ -19,6 +19,10 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.2.0", features = [] }
 window-vibrancy = "0.3.1"
+lazy_static = "1.4.0"
+anyhow = "1.0.66"
+yeet-ops = "1.0.0"
+notify = { version ="5.0.0", features = ["serde"] }
 
 [features]
 # by default Tauri runs in production mode

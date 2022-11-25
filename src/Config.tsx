@@ -1,12 +1,17 @@
+import { invoke } from "@tauri-apps/api";
+import { createResource } from "solid-js";
 import { Form } from "./form/Form";
 
 export const Config = () => {
-  return <Form
-    initialState={{ check: false }}
-    stateToForm={(state) => ({ check: { checked: state.check } })}
-    formToState={(form) => ({ check: form.check.checked })}
+  const [appConfig, { refetch }] = createResource<{ allow_nsfw: boolean }>(() => invoke("get_config"));
+  return <><Form
+    initialState={appConfig()}
+    stateToForm={(state) => ({ allow_nsfw: { checked: state.allow_nsfw } })}
+    formToState={(form) => ({ allow_nsfw: form.allow_nsfw.checked })}
   >{({ field, fieldId }) => <>
-    <label for={fieldId("check")}>Check</label>
-    <input type="checkbox" {...field("check")} />
+    <label for={fieldId("allow_nsfw")}>Check</label>
+    <input type="checkbox" {...field("allow_nsfw")} />
   </>}</Form>
+    <button onClick={async () => console.log(await refetch())}>Read</button>
+  </>
 }

@@ -15,11 +15,8 @@
     },
     "bundle": {
       "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
-      "deb": {
-        "depends": []
-      },
+      "category": "Utility",
+      "copyright": "Liran Piade",
       "externalBin": [],
       "icon": [
         "icons/32x32.png",
@@ -28,7 +25,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
+      "identifier": "com.lirannl.reddw",
       "longDescription": "",
       "macOS": {
         "entitlements": null,
@@ -38,7 +35,7 @@
         "signingIdentity": null
       },
       "resources": [],
-      "shortDescription": "",
+      "shortDescription": "A reddit wallpaper changer, written in Rust and Solidjs",
       "targets": "all",
       "windows": {
         "certificateThumbprint": null,
