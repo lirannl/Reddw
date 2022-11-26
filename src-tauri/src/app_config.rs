@@ -62,12 +62,12 @@ pub async fn build(app: tauri::AppHandle) -> tauri::Result<()> {
     spawn(move || {
         let mut watcher =
             recommended_watcher(move |res: notify::Result<notify::Event>| match res {
-                Ok(event) => {
-                    println!("event: {:?}", event);
-                    let config_json = read_to_string(&config_path_clone).unwrap();
+                Ok(event) if EventKind::Modify(ModifyKind::Any) == event.kind => {
+                    {let config_json = read_to_string(&config_path_clone).unwrap();
                     let config: AppConfig = serde_json::from_str(&config_json).unwrap();
-                    *block_on(CONFIG.lock()) = config;
+                    *block_on(CONFIG.lock()) = config;}
                 }
+                Ok(_) => {}
                 Err(e) => {
                     println!("watch error: {:?}", e);
                 }

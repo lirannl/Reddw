@@ -1,4 +1,4 @@
-import { Accessor, splitProps } from "solid-js";
+import { Accessor, createEffect, Resource, splitProps } from "solid-js";
 import { JSX } from "solid-js/jsx-runtime";
 import { createStore } from "solid-js/store";
 import { NestedKeyOf } from "typesafe-object-paths";
@@ -6,7 +6,7 @@ import { NestedKeyOf } from "typesafe-object-paths";
 export const createForm = <State extends Record<string, unknown> | unknown[],
     Form extends Record<NestedKeyOf<State>, Record<string, unknown>>,>
     (props: {
-        initialState?: Partial<State> | Accessor<Partial<State>>, stateToForm: (state: State) => Form,
+        initialState?: Partial<State> | Accessor<Partial<State>> | Resource<Partial<State>>, stateToForm: (state: State) => Form,
         formToState: (form: Partial<HTMLFormElement> & Record<NestedKeyOf<State>, HTMLInputElement>) => State
     }) => {
     const frmId = Math.random().toString(16).slice(2);
@@ -20,6 +20,10 @@ export const createForm = <State extends Record<string, unknown> | unknown[],
                 return {};
         }
     })() as State);
+    createEffect(() => {
+        const update = typeof props.initialState === "function" ? props.initialState() : props.initialState;
+        if (update) setState(prev => ({ ...prev, ...update }));
+    })
     /**
      * A form with a managed state
      * Ensure that child elements which externally modify the state prevent propagation of their change events
