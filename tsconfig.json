@@ -8,7 +8,14 @@
     "esModuleInterop": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "types": ["vite/client"],
+    "types": [
+      "vite/client"
+    ],
+    "paths": {
+      "@bindings/*": [
+        "./src-tauri/bindings/*"
+      ],
+    },
     "noEmit": true,
     "isolatedModules": true
   }

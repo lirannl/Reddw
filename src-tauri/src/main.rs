@@ -1,8 +1,13 @@
 #![feature(async_closure)]
 mod app_config;
-use tauri::{Manager, generate_handler, async_runtime::{spawn_blocking, block_on}};
+use tauri::{
+    async_runtime::{block_on, spawn_blocking},
+    generate_handler, Manager,
+};
 #[allow(unused_imports)]
 use window_vibrancy::{apply_acrylic, apply_vibrancy, Color};
+
+use crate::app_config::{get_config, set_config};
 
 fn main() {
     tauri::Builder::default()
@@ -20,7 +25,7 @@ fn main() {
             block_on(app_config::build(app.handle())).unwrap();
             Ok(())
         })
-        .invoke_handler(generate_handler![app_config::get_config])
+        .invoke_handler(generate_handler![get_config, set_config])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

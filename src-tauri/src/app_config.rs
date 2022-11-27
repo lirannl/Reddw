@@ -6,8 +6,9 @@ use notify::{
 use serde::{Deserialize, Serialize};
 use std::{
     fs::read_to_string,
+    io::{stderr, Write, self},
     path::Path,
-    thread::{self, spawn},
+    thread::{self, spawn}, error::Error,
 };
 use tauri::async_runtime::{block_on, Mutex};
 
@@ -32,7 +33,7 @@ impl Default for AppConfig {
         Self {
             allow_nsfw: false,
             sources: vec![Source::Subreddit("wallpapers".to_string())],
-            interval: 60.0 * 60.0 * 24.0,
+            interval: 60.0 * 60.0 * 1.0,
             max_buffer: 1000 * 1000 * 100,
         }
     }
@@ -63,14 +64,29 @@ pub async fn build(app: tauri::AppHandle) -> tauri::Result<()> {
         let mut watcher =
             recommended_watcher(move |res: notify::Result<notify::Event>| match res {
                 Ok(event) if EventKind::Modify(ModifyKind::Any) == event.kind => {
-                    {let config_json = read_to_string(&config_path_clone).unwrap();
-                    let config: AppConfig = serde_json::from_str(&config_json).unwrap();
-                    *block_on(CONFIG.lock()) = config;}
+                    || -> Result<(), Box<dyn std::error::Error>> {
+                        let config = serde_json::from_str::<AppConfig>(&read_to_string(
+                            &config_path_clone,
+                        )?)?;
+                        *block_on(CONFIG.lock()) = config;
+                        Ok(())
+                    }()
+                    .unwrap_or_else(|res| {
+                        if let Some(serde_error) = res.downcast_ref::<serde_json::Error>() {
+                            if !serde_error.is_eof() {
+                                writeln!(
+                                    stderr(),
+                                    "Error parsing config file: {}",
+                                    serde_error.to_string()
+                                )
+                                .unwrap();
+                            }
+                        } else {
+                            writeln!(stderr(), "Error: {}", res.to_string()).unwrap();
+                        }
+                    });
                 }
-                Ok(_) => {}
-                Err(e) => {
-                    println!("watch error: {:?}", e);
-                }
+                _ => {}
             })
             .unwrap();
 
@@ -89,4 +105,12 @@ pub async fn build(app: tauri::AppHandle) -> tauri::Result<()> {
 #[tauri::command]
 pub async fn get_config() -> tauri::Result<AppConfig> {
     Ok((*CONFIG.lock().await).clone())
+}
+
+#[tauri::command]
+pub async fn set_config(app: tauri::AppHandle, app_config: AppConfig) -> tauri::Result<()> {
+    let config_dir = app.path_resolver().app_config_dir().unwrap();
+    let config_json = serde_json::to_string_pretty(&app_config)?;
+    std::fs::write(Path::join(&config_dir, "config.json"), config_json)?;
+    Ok(())
 }
