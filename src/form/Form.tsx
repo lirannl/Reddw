@@ -3,12 +3,12 @@ import { JSX } from "solid-js/jsx-runtime";
 import { createStore } from "solid-js/store";
 import { NestedKeyOf } from "typesafe-object-paths";
 
-export const createForm = <State extends Record<string, unknown> | unknown[],
-    Form extends Partial<Record<NestedKeyOf<State>, Partial<HTMLInputElement>>>,>
+export const createForm = <State extends Record<string, unknown>,
+    Form extends Partial<Record<NestedKeyOf<State>, Record<string, unknown>>>,>
     (props: {
         initialState: State | Accessor<State> | Resource<State>,
         stateToForm: (state: State) => Form,
-        formToState: (form: Partial<HTMLFormElement> & Form) => State
+        formToState: (form: HTMLFormElement & Form) => State
     }) => {
     const [state, setState] = createStore<State>((() => {
         switch (typeof props.initialState) {
@@ -33,7 +33,7 @@ export const createForm = <State extends Record<string, unknown> | unknown[],
         Omit<JSX.HTMLAttributes<HTMLFormElement>, "children" | "onChange">) => {
         return <form
             onChange={(e) => {
-                setState(props.formToState(e.currentTarget as unknown as Partial<HTMLFormElement> & Form));
+                setState(props.formToState(e.currentTarget as unknown as HTMLFormElement & Form));
             }} {...formProps} />;
     }
     const fieldId = (key: keyof Form) => `${frmId}-${key as string}`;
@@ -46,13 +46,13 @@ export const createForm = <State extends Record<string, unknown> | unknown[],
     }
 }
 
-export const Form = <State extends Record<string, unknown> | unknown[],
-    Form extends Record<NestedKeyOf<State>, Record<string, unknown>>,>(props: Omit<
-        Parameters<typeof createForm<State, Form>>[0], "children"> & {
-            children: (props: Omit<ReturnType<typeof createForm<State, Form>>, "Form">) => JSX.Element
-        }
-    ) => {
-    const [c, parentProps] = splitProps(props, ["children"]);
-    const { Form, ...childProps } = createForm(parentProps);
-    return <Form children={c.children(childProps)} />
-}
+// export const Form = <State extends Record<string, unknown>,
+//     Form extends Partial<Record<NestedKeyOf<State>, Record<string, unknown>>>,>(props: Omit<
+//         Parameters<typeof createForm<State, Form>>[0], "children"> & {
+//             children: (props: Omit<ReturnType<typeof createForm<State, Form>>, "Form">) => JSX.Element
+//         }
+//     ) => {
+//     const [c, parentProps] = splitProps(props, ["children"]);
+//     const { Form, ...childProps } = createForm(parentProps);
+//     return <Form children={c.children(childProps)} />
+// }

@@ -5,10 +5,11 @@ use notify::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    error::Error,
     fs::read_to_string,
-    io::{stderr, Write, self},
+    io::{self, stderr, Write},
     path::Path,
-    thread::{self, spawn}, error::Error,
+    thread::{self, spawn},
 };
 use tauri::async_runtime::{block_on, Mutex};
 
@@ -25,7 +26,7 @@ pub struct AppConfig {
     /// How often to switch new wallpapers (in seconds)
     interval: f64,
     /// How many wallpapers to keep in the cache
-    max_buffer: i64,
+    max_buffer: String,
 }
 
 impl Default for AppConfig {
@@ -34,7 +35,7 @@ impl Default for AppConfig {
             allow_nsfw: false,
             sources: vec![Source::Subreddit("wallpapers".to_string())],
             interval: 60.0 * 60.0 * 1.0,
-            max_buffer: 1000 * 1000 * 100,
+            max_buffer: format!("{}", 1000 * 1000 * 100),
         }
     }
 }
