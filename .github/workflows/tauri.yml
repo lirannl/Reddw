@@ -1,18 +1,15 @@
-name: Rust
+name: Tauri
 
 on:
   release:
     types: [published]
-
+    
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
+    - uses: tauri-apps/tauri-action@v0
     - name: Build
-      run: cd src-tauri && cargo build -r --verbose
