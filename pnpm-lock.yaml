@@ -2,8 +2,10 @@ lockfileVersion: 5.4
 
 specifiers:
   '@tauri-apps/api': ^1.2.0
+  '@types/big.js': ^6.1.6
   '@typescript-eslint/eslint-plugin': ^5.43.0
   '@typescript-eslint/parser': ^5.43.0
+  big.js: ^6.2.1
   eslint: ^8.27.0
   eslint-plugin-solid: ^0.8.0
   solid-js: ^1.5.1
@@ -16,10 +18,12 @@ specifiers:
 
 dependencies:
   '@tauri-apps/api': 1.2.0
+  big.js: 6.2.1
   solid-js: 1.5.1
   ts-pattern: 4.0.6
 
 devDependencies:
+  '@types/big.js': 6.1.6
   '@typescript-eslint/eslint-plugin': 5.43.0_vcundlh4ugvhunkivflg4u6j3i
   '@typescript-eslint/parser': 5.43.0_bbv4pikdfp63x3pyasmn5i66ru
   eslint: 8.27.0
@@ -457,6 +461,10 @@ packages:
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
     dev: false
 
+  /@types/big.js/6.1.6:
+    resolution: {integrity: sha512-0r9J+Zz9rYm2hOTwiMAVkm3XFQ4u5uTK37xrQMhc9bysn/sf/okzovWMYYIBMFTn/yrEZ11pusgLEaoarTlQbA==}
+    dev: true
+
   /@types/eslint/8.4.10:
     resolution: {integrity: sha512-Sl/HOqN8NKPmhWo2VBEPm0nvHnu2LL3v9vKo8MEq0EtbJ4eVzGPl41VNPvn5E1i5poMk4/XD8UriLHpJvEP/Nw==}
     dependencies:
@@ -691,6 +699,10 @@ packages:
   /balanced-match/1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
     dev: true
+
+  /big.js/6.2.1:
+    resolution: {integrity: sha512-bCtHMwL9LeDIozFn+oNhhFoq+yQ3BNdnsLSASUxLciOb1vgvpHsIO1dsENiGMgbb4SkP5TrzWzRiLddn8ahVOQ==}
+    dev: false
 
   /brace-expansion/1.1.11:
     resolution: {integrity: sha512-iCuPHDFgrHX7H2vEI/5xpz07zSHB00TpugqhmYtVmMO6518mCuRMoOYFldEBl0g187ufozdaHgWKcYFb61qGiA==}

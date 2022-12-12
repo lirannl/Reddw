@@ -1,4 +1,4 @@
-import { Accessor, createEffect, Resource, splitProps } from "solid-js";
+import { Accessor, createEffect, Resource } from "solid-js";
 import { JSX } from "solid-js/jsx-runtime";
 import { createStore } from "solid-js/store";
 import { NestedKeyOf } from "typesafe-object-paths";
@@ -45,14 +45,3 @@ export const createForm = <State extends Record<string, unknown>,
         }),
     }
 }
-
-// export const Form = <State extends Record<string, unknown>,
-//     Form extends Partial<Record<NestedKeyOf<State>, Record<string, unknown>>>,>(props: Omit<
-//         Parameters<typeof createForm<State, Form>>[0], "children"> & {
-//             children: (props: Omit<ReturnType<typeof createForm<State, Form>>, "Form">) => JSX.Element
-//         }
-//     ) => {
-//     const [c, parentProps] = splitProps(props, ["children"]);
-//     const { Form, ...childProps } = createForm(parentProps);
-//     return <Form children={c.children(childProps)} />
-// }
