@@ -43,6 +43,11 @@
         "timestampUrl": ""
       }
     },
+    "cli": {
+      "args": [
+        {"name": "background", "short": "b"}
+      ]
+    },
     "security": {
       "csp": null
     },

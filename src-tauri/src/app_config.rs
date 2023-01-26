@@ -5,6 +5,7 @@ use notify::{
     recommended_watcher, RecursiveMode, Watcher,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::{Encode, database::HasArguments, Decode};
 use std::{
     fs::{self, read_to_string},
     path::{Path, PathBuf},
@@ -13,16 +14,28 @@ use std::{
 };
 use tauri::{
     async_runtime::{block_on, Mutex, Sender},
-    AppHandle, Manager,
+    AppHandle,
 };
 use ts_rs::TS;
 
-use crate::wallpaper_changer::Wallpaper;
+use crate::queue::DB;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
 pub enum Source {
     Subreddit(String),
+}
+
+impl From<String> for Source {
+    fn from(v: String) -> Self {
+        serde_json::from_str(&v).unwrap()
+    }
+}
+
+impl From<Source> for String {
+    fn from(v: Source) -> Self {
+        serde_json::to_string(&v).unwrap()
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -34,8 +47,6 @@ pub struct AppConfig {
     #[ts(type = "{secs: number, nanos: number}")]
     /// How often to switch new wallpapers (in seconds)
     pub interval: Duration,
-    #[ts(skip)]
-    pub history: Vec<Wallpaper>,
     pub cache_dir: PathBuf,
     // Max cache size, in megabytes
     pub cache_size: f64,
@@ -47,7 +58,6 @@ impl Default for AppConfig {
             allow_nsfw: false,
             sources: vec![Source::Subreddit("wallpapers".to_string())],
             interval: Duration::from_secs(60 * 60),
-            history: vec![],
             cache_dir: PathBuf::new(),
             cache_size: 100.0,
         }
@@ -105,13 +115,7 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
             if let Ok(event) = res && EventKind::Modify(ModifyKind::Any) == event.kind {
                     (|| -> Result<()> {
                         let config = serde_json::from_str::<AppConfig>(&read_to_string(
-                            &config_path_clone)?)
-                        //     .map(|valid_conf: AppConfig| {
-                        //     println!("Emitting config_changed");
-                        //     app.get_window("main").map(|w| w.emit("config_changed", valid_conf.clone()));
-                        //     valid_conf
-                        // })
-                        ?;
+                            &config_path_clone)?)?;
                         let old_config = block_on(CONFIG.lock()).clone();
                         if old_config.interval != config.interval {
                             tx_interval

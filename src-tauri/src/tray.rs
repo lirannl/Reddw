@@ -1,7 +1,10 @@
-use anyhow::Result;
-use tauri::{AppHandle, CustomMenuItem, SystemTray, SystemTrayMenu, WindowEvent, SystemTrayEvent, async_runtime, Manager};
+use tauri::{
+    async_runtime, AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
+};
 
-use crate::{wallpaper_changer::update_wallpaper, app_config::CONFIG};
+use crate::{
+    app_config::CONFIG, queue::Queue, main_window_setup, wallpaper_changer::update_wallpaper,
+};
 
 pub fn setup() -> SystemTray {
     let tray = SystemTray::new().with_menu(
@@ -21,22 +24,41 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
             // let item_handle = app.tray_handle().get_item(&id);
             match id.as_str() {
                 "update_wallpaper" => {
-                    async_runtime::spawn(update_wallpaper(app.app_handle()));
-                }
-                "open_info" => {
-                    async_runtime::spawn(async {
-                        let config = &*CONFIG.lock().await;
-                        if let Some(current) = config.history.last()
-                        {
-                            open::that(&current.info_url).unwrap_or_else(|e| eprintln!("{:#?}", e));
-                        }
+                    let id = id.clone();
+                    let handle = app.app_handle();
+                    let item_handle = handle.tray_handle().get_item(&id);
+                    async_runtime::spawn(async move {
+                        item_handle
+                            .set_enabled(false)
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        item_handle
+                            .set_title("Updating...")
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        update_wallpaper(handle)
+                            .await
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        item_handle
+                            .set_title("Update Wallpaper")
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        item_handle
+                            .set_enabled(true)
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
                     });
                 }
+                "open_info" => {
+                    // async_runtime::spawn(async {
+                    //     let config = &*CONFIG.lock().await;
+                    //     if let Some((_, wp)) = app.state::<History>().lock().await.last() {
+                    //         open::that(&wp.info_url).unwrap_or_else(|e| eprintln!("{:#?}", e));
+                    //     }
+                    // });
+                }
                 "show" => {
-                    app.get_window("main")
-                        .unwrap()
-                        .show()
-                        .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                    if let Some(w) = app.get_window("main") {
+                        w.set_focus().unwrap_or(());
+                    } else {
+                        main_window_setup(app.app_handle());
+                    }
                 }
                 "quit" => app.exit(0),
                 _ => {}

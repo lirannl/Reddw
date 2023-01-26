@@ -1,16 +1,17 @@
-use std::path::{absolute, Path};
-
-use anyhow::{anyhow, Result};
-use mime_guess::mime;
-use reqwest::{Client, Method, Request, Url};
-use serde::{Deserialize, Serialize};
-use serde_json::{from_value, Value};
-use tokio::fs;
+use std::{fs, str::FromStr};
 
 use crate::{
     app_config::{AppConfig, Source},
-    wallpaper_changer::Wallpaper,
+    queue::{Queue, DB},
 };
+use anyhow::{anyhow, Result};
+use chrono::Utc;
+use mime_guess::{mime, Mime};
+use reqwest::{Client, Method, Request, Url};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use sqlx::{query, Executor};
+use tauri::{AppHandle, Manager};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Post {
@@ -118,15 +119,20 @@ pub struct Post {
     is_video: bool,
 }
 
-pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpaper> {
-    let mut post: Option<Post> = None;
+pub async fn get_from_subreddit(
+    name: &str,
+    config: &AppConfig,
+    app_handle: &AppHandle,
+) -> Result<()> {
+    let mut last_post: Option<Post> = None;
+    let mut posts: Vec<Post> = Vec::new();
     let url = format!("https://www.reddit.com/r/{name}/hot.json");
-    if post.is_none() {
+    while last_post.is_none() {
         let mut url = Url::parse(url.as_str())?;
         {
             let mut query_pairs = url.query_pairs_mut();
             query_pairs.append_pair("client_id", "8Msi7s37PSEWqkB9G-otfQ");
-            if let Some(post) = post {
+            if let Some(post) = last_post {
                 query_pairs.append_pair("after", post.id.as_str());
             };
         }
@@ -136,7 +142,8 @@ pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpa
             .text()
             .await?;
         let json: Value = serde_json::from_str(&res)?;
-        let posts: Vec<Post> = json
+        let queue = app_handle.state::<Queue>().lock().await.clone();
+        let new_posts: Vec<Post> = json
             .get("data")
             .ok_or(anyhow!("Data not found"))?
             .get("children")
@@ -150,8 +157,13 @@ pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpa
                 if !post.is_self
                     && !post.is_meta
                     && (config.allow_nsfw || !post.over_18)
-                    && mime_guess::from_path(&post.url).iter().any(|m| m.type_() == mime::IMAGE)
-                    && config.history.iter().find(|w| w.id == post.id).is_none()
+                    && mime_guess::from_path(&post.url)
+                        .iter()
+                        .any(|m| m.type_() == mime::IMAGE)
+                    && queue
+                        .iter()
+                        .find(|&wp| wp.id.to_owned() == post.id)
+                        .is_none()
                 {
                     Some(post)
                 } else {
@@ -159,13 +171,47 @@ pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpa
                 }
             })
             .collect();
-        post = posts.first().map(|p| p.clone());
+        last_post = new_posts.first().map(|p| p.clone());
+        posts = new_posts;
     }
-    let post = post.ok_or(anyhow!("No posts"))?;
-    Ok(Wallpaper {
-        id: post.id,
-        info_url: format!("www.reddit.com{}", post.permalink),
-        source: Source::Subreddit(name.to_string()),
-        data_url: post.url,
-    })
+    let source_str = serde_json::to_string(&Source::Subreddit(name.to_string()))?;
+    let mut transaction = app_handle.state::<DB>().begin().await?;
+
+    match {
+        for post in posts {
+            let wp_res = reqwest::get(&post.url).await?;
+            let wallpaper_filename = format!(
+                "{}.{}",
+                post.id,
+                Mime::from_str(
+                    wp_res
+                        .headers()
+                        .get("Content-Type")
+                        .ok_or(anyhow!("Couldn't determine extension"))?
+                        .to_str()?
+                )?
+                .subtype()
+                .as_str()
+            );
+            fs::write(&wallpaper_filename, wp_res.bytes().await?)?;
+            let now = Utc::now();
+            transaction
+                .execute(query!(
+            "INSERT INTO queue (id, info_url, file_name, source, date) VALUES ($1, $2, $3, $4, $5)",
+            post.id,
+            post.url,
+            wallpaper_filename,
+            source_str,
+            now
+        ))
+                .await?;
+        }
+        Ok(())
+    } {
+        Ok(()) => transaction.commit().await.map_err(|e| e.into()),
+        Err(e) => {
+            transaction.rollback().await?;
+            return Err(e);
+        }
+    }
 }
