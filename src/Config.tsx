@@ -10,7 +10,7 @@ import { Big } from "big.js"
 const BILLION = 1000 * 1000 * 1000;
 
 export const Config = () => {
-  const [appConfig, { refetch, mutate }] = createResource<Interface<AppConfig>>(() => invoke("get_config"));
+  const [appConfig, { mutate }] = createResource<Interface<AppConfig>>(() => invoke("get_config"));
   listen("config_changed", ({payload}: {payload: AppConfig}) => mutate(payload));
   const { Form, field, fieldId, state, setState } = createForm({
     initialState: appConfig,
@@ -51,7 +51,10 @@ export const Config = () => {
   }
 
   createEffect(() => {
-    invoke("set_config", { appConfig: state });
+    (async () => {
+      if (JSON.stringify(state) !== JSON.stringify(await invoke("get_config")))
+      invoke("set_config", { appConfig: state });
+    })()
   })
 
   return <><Form>
@@ -76,6 +79,5 @@ export const Config = () => {
     <label for={fieldId("cache_size")}>Max cache size</label>
     <input type="number" {...field("cache_size")} />
   </Form >
-    <button onClick={async () => console.log(await refetch())}>Reload config</button>
   </>
 }

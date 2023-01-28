@@ -8,7 +8,7 @@ mod tray;
 mod wallpaper_changer;
 
 pub use anyhow::anyhow;
-use queue::manage_history;
+use queue::manage_queue;
 use tauri::{async_runtime::block_on, generate_handler, AppHandle, Manager};
 use wallpaper_changer::setup_changer;
 
@@ -55,12 +55,19 @@ fn main() {
                 }
             }
             let tx_interval = setup_changer(app.handle());
-            // main_window_setup(app.handle());
-            // Setup history
-            block_on(manage_history(app.handle())).unwrap();
-            // Setup config watcher
-            block_on(app_config::build(app.handle(), tx_interval)).unwrap();
-            // Setup wallpaper switcher
+            match {
+                // Setup config watcher
+                block_on(app_config::build(app.handle(), tx_interval))?;
+                // Setup history
+                block_on(manage_queue(app.handle()))?;
+                Result::<(), anyhow::Error>::Ok(())
+            } {
+                Ok(()) => (),
+                Err(e) => {
+                    eprintln!("Error while setting up {e:#?}");
+                    std::process::exit(1);
+                }
+            }
             Ok(())
         })
         .invoke_handler(generate_handler![

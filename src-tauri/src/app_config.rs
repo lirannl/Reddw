@@ -5,7 +5,7 @@ use notify::{
     recommended_watcher, RecursiveMode, Watcher,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Encode, database::HasArguments, Decode};
+use sqlx::{Encode, types::Json, Type};
 use std::{
     fs::{self, read_to_string},
     path::{Path, PathBuf},
@@ -14,28 +14,14 @@ use std::{
 };
 use tauri::{
     async_runtime::{block_on, Mutex, Sender},
-    AppHandle,
+    AppHandle, Manager,
 };
 use ts_rs::TS;
-
-use crate::queue::DB;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
 pub enum Source {
     Subreddit(String),
-}
-
-impl From<String> for Source {
-    fn from(v: String) -> Self {
-        serde_json::from_str(&v).unwrap()
-    }
-}
-
-impl From<Source> for String {
-    fn from(v: Source) -> Self {
-        serde_json::to_string(&v).unwrap()
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -90,7 +76,7 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
     let config_path_clone = config_path.clone();
     if !config_path.exists() {
         let mut config = AppConfig::default();
-        config.cache_dir = app.path_resolver().app_cache_dir().unwrap();
+        config.cache_dir = app.path_resolver().app_cache_dir().unwrap_or(Path::new("").to_path_buf());
         let config_json = serde_json::to_string_pretty(&config)?;
         fs::write(&config_path, config_json)?;
     }
@@ -108,6 +94,7 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
         tx_interval
             .try_send(config.interval)
             .or(Err(tauri::Error::FailedToSendMessage))?;
+        app.manage(config.clone());
         *CONFIG.lock().await = config;
     }
     spawn(move || {
@@ -116,12 +103,16 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
                     (|| -> Result<()> {
                         let config = serde_json::from_str::<AppConfig>(&read_to_string(
                             &config_path_clone)?)?;
-                        let old_config = block_on(CONFIG.lock()).clone();
+                        let old_config = app.state::<AppConfig>();
                         if old_config.interval != config.interval {
                             tx_interval
                                 .try_send(config.interval)
                                 .or_else(|e| Err(anyhow!("{:#?}", e)))?;
                         }
+                        if let Some(main) = app.get_window("main") {
+                            main.emit("config_changed", Some(config.clone()))?;
+                        }
+                        app.manage(config.clone());
                         *block_on(CONFIG.lock()) = config;
                         Ok(())
                     })().unwrap_or_else(|err| {

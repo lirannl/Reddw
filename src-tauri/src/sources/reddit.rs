@@ -1,12 +1,10 @@
-use std::{fs, str::FromStr};
-
 use crate::{
     app_config::{AppConfig, Source},
-    queue::{Queue, DB},
+    queue::DB,
 };
 use anyhow::{anyhow, Result};
 use chrono::Utc;
-use mime_guess::{mime, Mime};
+use mime_guess::mime;
 use reqwest::{Client, Method, Request, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -121,7 +119,6 @@ pub struct Post {
 
 pub async fn get_from_subreddit(
     name: &str,
-    config: &AppConfig,
     app_handle: &AppHandle,
 ) -> Result<()> {
     let mut last_post: Option<Post> = None;
@@ -142,7 +139,6 @@ pub async fn get_from_subreddit(
             .text()
             .await?;
         let json: Value = serde_json::from_str(&res)?;
-        let queue = app_handle.state::<Queue>().lock().await.clone();
         let new_posts: Vec<Post> = json
             .get("data")
             .ok_or(anyhow!("Data not found"))?
@@ -156,14 +152,10 @@ pub async fn get_from_subreddit(
                     serde_json::from_value::<Option<Post>>(data.get("data")?.to_owned()).ok()??;
                 if !post.is_self
                     && !post.is_meta
-                    && (config.allow_nsfw || !post.over_18)
+                    && (app_handle.state::<AppConfig>().allow_nsfw || !post.over_18)
                     && mime_guess::from_path(&post.url)
                         .iter()
                         .any(|m| m.type_() == mime::IMAGE)
-                    && queue
-                        .iter()
-                        .find(|&wp| wp.id.to_owned() == post.id)
-                        .is_none()
                 {
                     Some(post)
                 } else {
@@ -171,6 +163,27 @@ pub async fn get_from_subreddit(
                 }
             })
             .collect();
+        // Remove posts which are already in the queue
+        let new_posts: Vec<Post> = {
+            let already_cached = query!("select id from queue")
+                .fetch_all(&mut app_handle.state::<DB>().acquire().await?)
+                .await?;
+            let already_cached = already_cached
+                .iter()
+                .map(|row| row.id.as_str())
+                .collect::<Vec<&str>>();
+            new_posts
+                .iter()
+                .filter_map(|p| {
+                    if !already_cached.contains(&p.id.as_str()) {
+                        Some(p.to_owned())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+
         last_post = new_posts.first().map(|p| p.clone());
         posts = new_posts;
     }
@@ -179,32 +192,18 @@ pub async fn get_from_subreddit(
 
     match {
         for post in posts {
-            let wp_res = reqwest::get(&post.url).await?;
-            let wallpaper_filename = format!(
-                "{}.{}",
-                post.id,
-                Mime::from_str(
-                    wp_res
-                        .headers()
-                        .get("Content-Type")
-                        .ok_or(anyhow!("Couldn't determine extension"))?
-                        .to_str()?
-                )?
-                .subtype()
-                .as_str()
-            );
-            fs::write(&wallpaper_filename, wp_res.bytes().await?)?;
             let now = Utc::now();
             transaction
-                .execute(query!(
-            "INSERT INTO queue (id, info_url, file_name, source, date) VALUES ($1, $2, $3, $4, $5)",
-            post.id,
-            post.url,
-            wallpaper_filename,
-            source_str,
-            now
-        ))
-                .await?;
+                    .execute(query!(
+                "INSERT INTO queue (id, name, data_url, info_url, date, source) VALUES ($1, $2, $3, $4, $5, $6)",
+                post.id,
+                post.title,
+                post.url,
+                post.permalink,
+                now,
+                source_str,
+            ))
+                    .await?;
         }
         Ok(())
     } {

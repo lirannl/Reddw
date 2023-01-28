@@ -3,14 +3,14 @@ use tauri::{
 };
 
 use crate::{
-    app_config::CONFIG, queue::Queue, main_window_setup, wallpaper_changer::update_wallpaper,
+    app_config::CONFIG, main_window_setup, wallpaper_changer::update_wallpaper,
 };
 
 pub fn setup() -> SystemTray {
     let tray = SystemTray::new().with_menu(
         SystemTrayMenu::new()
-            .add_item(CustomMenuItem::new("update_wallpaper", "Update Wallpaper"))
             .add_item(CustomMenuItem::new("open_info", "Show information"))
+            .add_item(CustomMenuItem::new("update_wallpaper", "Update Wallpaper"))
             .add_native_item(tauri::SystemTrayMenuItem::Separator)
             .add_item(CustomMenuItem::new("show", "Show"))
             .add_item(CustomMenuItem::new("quit", "Quit")),
