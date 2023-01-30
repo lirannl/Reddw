@@ -1,11 +1,9 @@
 use anyhow::{anyhow, Result};
-use lazy_static::lazy_static;
 use notify::{
     event::{EventKind, ModifyKind},
     recommended_watcher, RecursiveMode, Watcher,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::{Encode, types::Json, Type};
 use std::{
     fs::{self, read_to_string},
     path::{Path, PathBuf},
@@ -23,6 +21,11 @@ use ts_rs::TS;
 pub enum Source {
     Subreddit(String),
 }
+impl Default for Source {
+    fn default() -> Self {
+        Self::Subreddit("wallpapers".to_string())
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
@@ -36,22 +39,25 @@ pub struct AppConfig {
     pub cache_dir: PathBuf,
     // Max cache size, in megabytes
     pub cache_size: f64,
+    pub history_amount: i32,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             allow_nsfw: false,
-            sources: vec![Source::Subreddit("wallpapers".to_string())],
+            sources: vec![Default::default()],
             interval: Duration::from_secs(60 * 60),
             cache_dir: PathBuf::new(),
             cache_size: 100.0,
+            history_amount: 10,
         }
     }
 }
 
 pub trait AppHandleExt {
     fn get_config_path(&self) -> PathBuf;
+    async fn get_config(&self) -> AppConfig;
 }
 
 impl AppHandleExt for AppHandle {
@@ -59,11 +65,9 @@ impl AppHandleExt for AppHandle {
         let config_dir = self.path_resolver().app_config_dir().unwrap();
         Path::join(&config_dir, "config.json")
     }
-}
-
-lazy_static! {
-    pub static ref CONFIG: Mutex<AppConfig> = Mutex::new(AppConfig::default());
-    pub static ref CONFIG_PATH: Mutex<PathBuf> = Mutex::new(PathBuf::new());
+    async fn get_config(&self) -> AppConfig {
+        self.state::<Mutex<AppConfig>>().lock().await.clone()
+    }
 }
 
 pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()> {
@@ -72,7 +76,6 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
         fs::create_dir_all(&config_dir)?;
     }
     let config_path = Path::join(&config_dir, "config.json");
-    *CONFIG_PATH.lock().await = config_path.clone();
     let config_path_clone = config_path.clone();
     if !config_path.exists() {
         let mut config = AppConfig::default();
@@ -94,8 +97,7 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
         tx_interval
             .try_send(config.interval)
             .or(Err(tauri::Error::FailedToSendMessage))?;
-        app.manage(config.clone());
-        *CONFIG.lock().await = config;
+        app.manage(Mutex::new(config.clone()));
     }
     spawn(move || {
         let mut watcher = recommended_watcher(move |res: notify::Result<notify::Event>| {
@@ -103,7 +105,7 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
                     (|| -> Result<()> {
                         let config = serde_json::from_str::<AppConfig>(&read_to_string(
                             &config_path_clone)?)?;
-                        let old_config = app.state::<AppConfig>();
+                        let old_config = block_on(app.state::<Mutex<AppConfig>>().lock()).clone();
                         if old_config.interval != config.interval {
                             tx_interval
                                 .try_send(config.interval)
@@ -112,8 +114,7 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
                         if let Some(main) = app.get_window("main") {
                             main.emit("config_changed", Some(config.clone()))?;
                         }
-                        app.manage(config.clone());
-                        *block_on(CONFIG.lock()) = config;
+                        *block_on(app.state::<Mutex<AppConfig>>().lock()) = config;
                         Ok(())
                     })().unwrap_or_else(|err| {
                         eprintln!("{:#?}", err);
@@ -135,8 +136,8 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
 }
 
 #[tauri::command]
-pub async fn get_config() -> tauri::Result<AppConfig> {
-    Ok((*CONFIG.lock().await).clone())
+pub async fn get_config(app: tauri::AppHandle) -> tauri::Result<AppConfig> {
+    Ok(app.get_config().await)
 }
 
 #[tauri::command]

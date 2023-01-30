@@ -1,9 +1,11 @@
+use crate::{
+    main_window_setup,
+    queue::DB,
+    wallpaper_changer::{update_wallpaper, Wallpaper},
+};
+use sqlx::query_as;
 use tauri::{
     async_runtime, AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
-};
-
-use crate::{
-    app_config::CONFIG, main_window_setup, wallpaper_changer::update_wallpaper,
 };
 
 pub fn setup() -> SystemTray {
@@ -46,18 +48,29 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                     });
                 }
                 "open_info" => {
-                    // async_runtime::spawn(async {
-                    //     let config = &*CONFIG.lock().await;
-                    //     if let Some((_, wp)) = app.state::<History>().lock().await.last() {
-                    //         open::that(&wp.info_url).unwrap_or_else(|e| eprintln!("{:#?}", e));
-                    //     }
-                    // });
+                    let app_clone = app.app_handle();
+                    async_runtime::spawn(async move {
+                        let mut dbconn = app_clone.state::<DB>().acquire().await?;
+                        let info_url = query_as!(
+                            Wallpaper,
+                            "---sql
+                            select * from queue 
+                            where was_set = 1
+                            order by date desc",
+                        )
+                        .fetch_optional(&mut dbconn).await?.and_then(|a| a.info_url);
+                        if let Some(info_url) = info_url
+                        {
+                            open::that(&info_url).unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        }
+                        Ok::<_, anyhow::Error>(())
+                    });
                 }
                 "show" => {
                     if let Some(w) = app.get_window("main") {
                         w.set_focus().unwrap_or(());
                     } else {
-                        main_window_setup(app.app_handle());
+                        main_window_setup(app.app_handle()).unwrap_or_else(|e| eprintln!("{e:#?}"));
                     }
                 }
                 "quit" => app.exit(0),

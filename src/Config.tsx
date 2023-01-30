@@ -11,7 +11,7 @@ const BILLION = 1000 * 1000 * 1000;
 
 export const Config = () => {
   const [appConfig, { mutate }] = createResource<Interface<AppConfig>>(() => invoke("get_config"));
-  listen("config_changed", ({payload}: {payload: AppConfig}) => mutate(payload));
+  listen("config_changed", ({ payload }: { payload: AppConfig }) => mutate(payload));
   const { Form, field, fieldId, state, setState } = createForm({
     initialState: appConfig,
     stateToForm: state => {
@@ -25,6 +25,7 @@ export const Config = () => {
         ...sources,
         cache_dir: { value: state.cache_dir ?? "" },
         cache_size: { value: `${state.cache_size}` ?? "" },
+        history_amount: { value: `${state.history_amount}` ?? "" },
       };
       return form as typeof form & typeof sources;
       // return form as typeof form & typeof sources;
@@ -36,12 +37,11 @@ export const Config = () => {
       return {
         allow_nsfw: form.allow_nsfw.checked ?? false,
         interval: { secs: secs_int.toNumber(), nanos: s.minus(secs_int).mul(BILLION).mod(BILLION).toNumber() },
-        sources: sources.map((_, i) => {
-          const srcType = form[`sources.${i}`].value;
-          return ({ [srcType]: form[`sources.${i}.${srcType}`].value });
-        }),
+        sources: sources.map(s => ({[form[s].value]: form[`${s}.${form[s].value}`].value}))
+,
         cache_dir: form["cache_dir"].value,
         cache_size: parseFloat(form["cache_size"].value),
+        history_amount: parseInt(form["history_amount"].value),
       } as AppConfig;
     }
   });
@@ -53,7 +53,7 @@ export const Config = () => {
   createEffect(() => {
     (async () => {
       if (JSON.stringify(state) !== JSON.stringify(await invoke("get_config")))
-      invoke("set_config", { appConfig: state });
+        invoke("set_config", { appConfig: state });
     })()
   })
 
@@ -75,9 +75,11 @@ export const Config = () => {
       </span>
     </div>
     <label for={fieldId("cache_dir")}>Wallpapers folder</label>
-    <input type="text" {...field("cache_dir")} /><br/>
+    <input type="text" {...field("cache_dir")} /><br />
     <label for={fieldId("cache_size")}>Max cache size</label>
     <input type="number" {...field("cache_size")} />
+    <label for={fieldId("history_amount")}>Max cache size</label>
+    <input type="number" {...field("history_amount")} />
   </Form >
   </>
 }

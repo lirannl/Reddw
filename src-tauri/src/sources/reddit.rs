@@ -1,6 +1,9 @@
+use std::fmt::Display;
+
 use crate::{
-    app_config::{AppConfig, Source},
+    app_config::{Source, AppHandleExt},
     queue::DB,
+    wallpaper_changer::hash_url,
 };
 use anyhow::{anyhow, Result};
 use chrono::Utc;
@@ -117,10 +120,8 @@ pub struct Post {
     is_video: bool,
 }
 
-pub async fn get_from_subreddit(
-    name: &str,
-    app_handle: &AppHandle,
-) -> Result<()> {
+pub async fn get_from_subreddit(name: impl Display, app_handle: &AppHandle) -> Result<usize> {
+    let config = app_handle.get_config().await;
     let mut last_post: Option<Post> = None;
     let mut posts: Vec<Post> = Vec::new();
     let url = format!("https://www.reddit.com/r/{name}/hot.json");
@@ -152,7 +153,7 @@ pub async fn get_from_subreddit(
                     serde_json::from_value::<Option<Post>>(data.get("data")?.to_owned()).ok()??;
                 if !post.is_self
                     && !post.is_meta
-                    && (app_handle.state::<AppConfig>().allow_nsfw || !post.over_18)
+                    && (config.allow_nsfw || !post.over_18)
                     && mime_guess::from_path(&post.url)
                         .iter()
                         .any(|m| m.type_() == mime::IMAGE)
@@ -189,25 +190,37 @@ pub async fn get_from_subreddit(
     }
     let source_str = serde_json::to_string(&Source::Subreddit(name.to_string()))?;
     let mut transaction = app_handle.state::<DB>().begin().await?;
-
+    let len = posts.len();
     match {
         for post in posts {
+            let id = hash_url(post.url.as_str());
+            if query!("SELECT * FROM queue WHERE id = $1", id)
+                .fetch_optional(&mut transaction)
+                .await?
+                .is_some()
+            {
+                continue;
+            }
             let now = Utc::now();
+            let permalink = format!("https://www.reddit.com{}", post.permalink);
             transaction
                     .execute(query!(
                 "INSERT INTO queue (id, name, data_url, info_url, date, source) VALUES ($1, $2, $3, $4, $5, $6)",
-                post.id,
+                id,
                 post.title,
                 post.url,
-                post.permalink,
+                permalink,
                 now,
                 source_str,
             ))
                     .await?;
         }
-        Ok(())
+        Ok(len)
     } {
-        Ok(()) => transaction.commit().await.map_err(|e| e.into()),
+        Ok(len) => {
+            transaction.commit().await?;
+            Ok(len)
+        }
         Err(e) => {
             transaction.rollback().await?;
             return Err(e);

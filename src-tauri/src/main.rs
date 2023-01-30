@@ -1,5 +1,6 @@
 #![windows_subsystem = "windows"]
-#![feature(async_closure, absolute_path, async_fn_in_trait, let_chains)]
+#![allow(incomplete_features)]
+#![feature(async_closure, async_fn_in_trait, absolute_path, let_chains)]
 
 mod app_config;
 mod queue;
@@ -7,8 +8,9 @@ mod sources;
 mod tray;
 mod wallpaper_changer;
 
-pub use anyhow::anyhow;
+pub use anyhow::{anyhow, Result};
 use queue::manage_queue;
+use sysinfo::{ProcessExt, SystemExt};
 use tauri::{async_runtime::block_on, generate_handler, AppHandle, Manager};
 use wallpaper_changer::setup_changer;
 
@@ -17,30 +19,52 @@ use window_vibrancy::{apply_acrylic, apply_vibrancy, Color};
 
 use crate::{
     app_config::{get_config, set_config},
+    queue::{cache_queue, get_queue},
     wallpaper_changer::update_wallpaper,
 };
 
-fn main_window_setup(app: AppHandle) {
+fn main_window_setup(app: AppHandle) -> Result<()> {
     let window =
         tauri::WindowBuilder::new(&app, "main", tauri::WindowUrl::App("index.html".into()))
             .title(env!("CARGO_PKG_NAME"))
             .build()
-            .or_else(|_e| app.get_window("main").ok_or(anyhow!("Couldn't get window")))
-            .unwrap();
+            .or_else(|_e| app.get_window("main").ok_or(anyhow!("Couldn't get window")))?;
     #[cfg(target_os = "windows")]
     {
-        apply_acrylic(window, None).unwrap();
+        apply_acrylic(window, None).map_err(|e| anyhow!(e))?;
     }
     #[cfg(target_os = "macos")]
     {
-        apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None).unwrap();
+        apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None)
+            .map_err(|e| anyhow!(e))?;
     }
+    Ok(())
+}
+
+fn prevent_duplicate_proc() -> Result<(), String> {
+    let sys = sysinfo::System::new_all();
+    let this_pid = sysinfo::get_current_pid()?;
+    let proc_name = sys
+        .process(this_pid)
+        .ok_or("Can't inspect this process")?
+        .name();
+    if sys
+        .processes_by_name(proc_name)
+        .find(|&p| p.pid() != sysinfo::get_current_pid().unwrap())
+        .is_some()
+    {
+        println!("Already running");
+        std::process::exit(0);
+    }
+    Ok(())
 }
 
 fn main() {
+    prevent_duplicate_proc()
+        .unwrap_or_else(|e| eprintln!("Error while preventing duplicate process: {e}"));
     tauri::Builder::default()
         .setup(|app| {
-            main_window_setup(app.app_handle());
+            main_window_setup(app.app_handle())?;
             match app.get_cli_matches() {
                 Err(e) => {
                     eprintln!("{:#?}", e);
@@ -74,7 +98,8 @@ fn main() {
             get_config,
             set_config,
             update_wallpaper,
-            // get_history,
+            cache_queue,
+            get_queue,
         ])
         .system_tray(tray::setup())
         .on_system_tray_event(tray::event_handler)

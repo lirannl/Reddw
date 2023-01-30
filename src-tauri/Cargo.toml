@@ -16,7 +16,7 @@ tauri-build = { version = "1.2.0", features = [] }
 
 [dependencies]
 serde_json = "1.0"
-sqlx = { version = "0.6.2", features = ["sqlite", "postgres", "runtime-tokio-native-tls", "chrono", "json"] }
+sqlx = { version = "0.6.2", features = ["sqlite", "runtime-tokio-native-tls", "chrono"] }
 tauri = { version = "1.2.0", features = ["cli", "system-tray"] }
 reqwest = { version = "0.11.13", features= ["serde_json"] }
 wallpaper = { version = "3.2.0", features = ["reqwest"] }
@@ -24,7 +24,6 @@ notify = { version ="5.0.0", features = ["serde"] }
 tokio = { version ="1.22.0", features = ["time"] }
 serde = { version = "1.0", features = ["derive"] }
 window-vibrancy = "0.3.1"
-lazy_static = "1.4.0"
 mime_guess = "2.0.4"
 anyhow = "1.0.66"
 ts-rs = "6.2.1"
@@ -33,6 +32,7 @@ open = "3.2.0"
 chrono = { version = "0.4.23", features = ["serde"] }
 sha2 = "0.10.6"
 data-encoding = "2.3.3"
+sysinfo = "0.27.7"
 
 [features]
 # by default Tauri runs in production mode

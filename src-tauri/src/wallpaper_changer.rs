@@ -1,25 +1,30 @@
-use crate::app_config::{AppConfig, Source};
+use crate::app_config::{AppHandleExt, Source};
 use crate::queue::DB;
 use crate::sources::reddit::get_from_subreddit;
 use anyhow::{anyhow, Result};
 use chrono::NaiveDateTime;
 use data_encoding::BASE32;
-use mime_guess::{Mime, MimeGuess};
+use mime_guess::mime::IMAGE;
+use mime_guess::Mime;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sqlx::{query_as, FromRow};
-use std::fs::{self, DirEntry};
-use std::path::{Path, self};
+use sqlx::{query, query_as, FromRow};
+use std::fmt::Display;
+use std::fs::{self, read_dir};
 use std::str::FromStr;
 use std::time::Duration;
-use tauri::utils::debug_eprintln;
 use tauri::{
     async_runtime::{self, JoinHandle, Sender},
     AppHandle, Manager,
 };
 use tokio::time::interval;
 use ts_rs::TS;
+
+pub fn hash_url(this: &(impl Display + ?Sized)) -> String {
+    let hash = Sha256::digest(this.to_string().as_bytes());
+    BASE32.encode(&hash)[..7].to_string()
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS, FromRow)]
 #[ts(export)]
@@ -31,38 +36,12 @@ pub struct Wallpaper {
     #[ts(type = "string")]
     pub date: NaiveDateTime,
     pub source: String,
+    #[serde(skip)]
     pub was_set: bool,
 }
 
-async fn trim(config: &AppConfig) -> Result<()> {
-    let mut files = fs::read_dir(&config.cache_dir)?
-        .filter_map(|f| Some(f.ok()?))
-        .collect::<Vec<DirEntry>>();
-    let mut size: u64 = files
-        .iter()
-        .filter_map(|f| {
-            if f.path().is_file() {
-                Some(f.metadata().ok()?.len())
-            } else {
-                None
-            }
-        })
-        .sum();
-    if size > (config.cache_size * 1000000.0) as u64 {
-        files.sort_by_key(|f| f.metadata().ok()?.created().ok());
-        for file in files {
-            if size < (config.cache_size * 1000000.0) as u64 {
-                break;
-            }
-            size -= file.metadata()?.len();
-            fs::remove_file(file.path())?;
-        }
-    }
-    Ok(())
-}
-
 async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
-    let config = app_handle.state::<AppConfig>();
+    let config = app_handle.get_config().await;
     let source = config
         .sources
         .choose(&mut rand::thread_rng())
@@ -75,7 +54,8 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
             Wallpaper,
             "---sql
             select * from queue 
-            where source = $1 and was_set = 0",
+            where source = $1 and was_set = 0
+            order by date desc",
             source_str
         )
         .fetch_optional(&mut app_handle_clone.state::<DB>().acquire().await?)
@@ -90,25 +70,54 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
         Ok(wallpaper) => Ok::<Wallpaper, anyhow::Error>(wallpaper),
         Err(e) => {
             let e = e as anyhow::Error;
-            if format!("{e}").contains("No wallpapers") {
+            if e.to_string().contains("No wallpapers") {
                 match source {
                     Source::Subreddit(sub) => get_from_subreddit(sub, &app_handle_clone).await?,
                 }
+            } else {
+                return Err(e);
             };
             let wallpaper = get_wp().await?;
             Ok(wallpaper)
         }
     }?;
+    let cache_dir = &app_handle.get_config().await.cache_dir;
+    let cache_dir_clone = cache_dir.clone();
+    let downloaded_file = fs::read_dir(cache_dir)?.find_map(|e| {
+        if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok() &&
+             hash_url(&name) == wallpaper.id
+        {Some(name)}
+        else {None}
+    });
 
-    let wallpaper_path = || {
-        app_handle.state::<AppConfig>().cache_dir.join(&wallpaper.id)
-    };
-    
-    wallpaper::set_from_path().map_err(|e| anyhow!(e.to_string()))?;
-    if let Some(main_window) = app_handle.get_window("main") {
-        main_window.emit("update_wallpaper_stop", None::<()>)?;
-    }
-    app_handle.tray_handle().get_item("update_wallpaper").set_title(wallpaper.name.as_str())?;
+    let wallpaper_path = if let Some(path) = downloaded_file {
+        Ok(cache_dir_clone.join(path))
+    } else {
+        download_wallpaper(&app_handle, &wallpaper.data_url)
+            .await
+            .map(|p| cache_dir_clone.join(p))
+    }?;
+
+    wallpaper::set_from_path(
+        wallpaper_path
+            .to_str()
+            .ok_or("Invalid path")
+            .map_err(|e| anyhow!("{e:#?}"))?,
+    )
+    .map_err(|e| anyhow!(e.to_string()))?;
+
+    query!(
+        "---sql
+        update queue set was_set = 1 where id = $1",
+        wallpaper.id
+    )
+    .execute(&mut app_handle.state::<DB>().acquire().await?)
+    .await?;
+
+    app_handle
+        .tray_handle()
+        .get_item("update_wallpaper")
+        .set_title(wallpaper.name.as_str())?;
     eprintln!("New wallpaper: {:#?}", wallpaper);
     Ok(())
 }
@@ -140,11 +149,11 @@ pub fn setup_changer(app_handle: AppHandle) -> Sender<Duration> {
     tx_dur
 }
 
-pub async fn download_wallpaper(app_handle: &AppHandle, wp_url: String) -> Result<()> {
-    let wp_res = reqwest::get(&wp_url).await?;
+pub async fn download_wallpaper(app_handle: &AppHandle, wp_url: impl Display) -> Result<String> {
+    let wp_res = reqwest::get(&wp_url.to_string()).await?;
     let wallpaper_filename = format!(
         "{}.{}",
-        &BASE32.encode(&Sha256::digest(&wp_url.as_bytes()))[..7],
+        hash_url(&wp_url),
         Mime::from_str(
             wp_res
                 .headers()
@@ -155,16 +164,34 @@ pub async fn download_wallpaper(app_handle: &AppHandle, wp_url: String) -> Resul
         .subtype()
         .as_str()
     );
-    let cache_folder = app_handle
-        .path_resolver()
-        .app_cache_dir()
-        .ok_or(anyhow!("No cache folder"))?;
-    debug_eprintln!("Downloading {} to {}", wp_url, wallpaper_filename);
+    let config = app_handle.get_config().await;
+    let cache_folder = config.cache_dir.clone();
+    // If the folder isn't full of photos
+    while read_dir(&cache_folder)?
+        .filter_map(|f| Some(f.ok()?.metadata().ok()?.len()))
+        .sum::<u64>()
+        + wp_res.content_length().unwrap_or(0)
+        >= (config.cache_size * 1024.0 * 1024.0).floor() as _
+    {
+        let oldest_download = read_dir(&config.cache_dir)?
+            .find_map(|f| {
+                let f = f.ok()?;
+                if !mime_guess::from_path(f.path())
+                    .iter()
+                    .any(|g| g.type_() == IMAGE)
+                {
+                    return None;
+                }
+                Some(f.path())
+            })
+            .ok_or(anyhow!("No downloads to delete"))?;
+        fs::remove_file(oldest_download)?;
+    }
     fs::write(
-        &cache_folder.join(wallpaper_filename),
+        &cache_folder.join(&wallpaper_filename),
         wp_res.bytes().await?,
     )?;
-    Ok(())
+    Ok(wallpaper_filename)
 }
 
 #[tauri::command]
