@@ -106,9 +106,11 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
     )
     .map_err(|e| anyhow!(e.to_string()))?;
 
+    let now = chrono::Utc::now().naive_utc();
     query!(
         "---sql
-        update queue set was_set = 1 where id = $1",
+        update queue set was_set = 1, date = $1 where id = $2",
+        now,
         wallpaper.id
     )
     .execute(&mut app_handle.state::<DB>().acquire().await?)
@@ -116,7 +118,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
 
     app_handle
         .tray_handle()
-        .get_item("update_wallpaper")
+        .get_item("open_info")
         .set_title(wallpaper.name.as_str())?;
     eprintln!("New wallpaper: {:#?}", wallpaper);
     Ok(())
