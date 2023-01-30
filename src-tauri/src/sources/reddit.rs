@@ -1,16 +1,18 @@
-use std::path::{absolute, Path};
+use std::fmt::Display;
 
+use crate::{
+    app_config::{Source, AppHandleExt},
+    queue::DB,
+    wallpaper_changer::hash_url,
+};
 use anyhow::{anyhow, Result};
+use chrono::Utc;
 use mime_guess::mime;
 use reqwest::{Client, Method, Request, Url};
 use serde::{Deserialize, Serialize};
-use serde_json::{from_value, Value};
-use tokio::fs;
-
-use crate::{
-    app_config::{AppConfig, Source},
-    wallpaper_changer::Wallpaper,
-};
+use serde_json::Value;
+use sqlx::{query, Executor};
+use tauri::{AppHandle, Manager};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Post {
@@ -118,15 +120,17 @@ pub struct Post {
     is_video: bool,
 }
 
-pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpaper> {
-    let mut post: Option<Post> = None;
+pub async fn get_from_subreddit(name: impl Display, app_handle: &AppHandle) -> Result<usize> {
+    let config = app_handle.get_config().await;
+    let mut last_post: Option<Post> = None;
+    let mut posts: Vec<Post> = Vec::new();
     let url = format!("https://www.reddit.com/r/{name}/hot.json");
-    if post.is_none() {
+    while last_post.is_none() {
         let mut url = Url::parse(url.as_str())?;
         {
             let mut query_pairs = url.query_pairs_mut();
             query_pairs.append_pair("client_id", "8Msi7s37PSEWqkB9G-otfQ");
-            if let Some(post) = post {
+            if let Some(post) = last_post {
                 query_pairs.append_pair("after", post.id.as_str());
             };
         }
@@ -136,7 +140,7 @@ pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpa
             .text()
             .await?;
         let json: Value = serde_json::from_str(&res)?;
-        let posts: Vec<Post> = json
+        let new_posts: Vec<Post> = json
             .get("data")
             .ok_or(anyhow!("Data not found"))?
             .get("children")
@@ -150,8 +154,9 @@ pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpa
                 if !post.is_self
                     && !post.is_meta
                     && (config.allow_nsfw || !post.over_18)
-                    && mime_guess::from_path(&post.url).iter().any(|m| m.type_() == mime::IMAGE)
-                    && config.history.iter().find(|w| w.id == post.id).is_none()
+                    && mime_guess::from_path(&post.url)
+                        .iter()
+                        .any(|m| m.type_() == mime::IMAGE)
                 {
                     Some(post)
                 } else {
@@ -159,13 +164,66 @@ pub async fn get_from_subreddit(name: &str, config: &AppConfig) -> Result<Wallpa
                 }
             })
             .collect();
-        post = posts.first().map(|p| p.clone());
+        // Remove posts which are already in the queue
+        let new_posts: Vec<Post> = {
+            let already_cached = query!("select id from queue")
+                .fetch_all(&mut app_handle.state::<DB>().acquire().await?)
+                .await?;
+            let already_cached = already_cached
+                .iter()
+                .map(|row| row.id.as_str())
+                .collect::<Vec<&str>>();
+            new_posts
+                .iter()
+                .filter_map(|p| {
+                    if !already_cached.contains(&p.id.as_str()) {
+                        Some(p.to_owned())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+
+        last_post = new_posts.first().map(|p| p.clone());
+        posts = new_posts;
     }
-    let post = post.ok_or(anyhow!("No posts"))?;
-    Ok(Wallpaper {
-        id: post.id,
-        info_url: format!("www.reddit.com{}", post.permalink),
-        source: Source::Subreddit(name.to_string()),
-        data_url: post.url,
-    })
+    let source_str = serde_json::to_string(&Source::Subreddit(name.to_string()))?;
+    let mut transaction = app_handle.state::<DB>().begin().await?;
+    let len = posts.len();
+    match {
+        for post in posts {
+            let id = hash_url(post.url.as_str());
+            if query!("SELECT * FROM queue WHERE id = $1", id)
+                .fetch_optional(&mut transaction)
+                .await?
+                .is_some()
+            {
+                continue;
+            }
+            let now = Utc::now();
+            let permalink = format!("https://www.reddit.com{}", post.permalink);
+            transaction
+                    .execute(query!(
+                "INSERT INTO queue (id, name, data_url, info_url, date, source) VALUES ($1, $2, $3, $4, $5, $6)",
+                id,
+                post.title,
+                post.url,
+                permalink,
+                now,
+                source_str,
+            ))
+                    .await?;
+        }
+        Ok(len)
+    } {
+        Ok(len) => {
+            transaction.commit().await?;
+            Ok(len)
+        }
+        Err(e) => {
+            transaction.rollback().await?;
+            return Err(e);
+        }
+    }
 }

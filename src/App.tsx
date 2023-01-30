@@ -11,6 +11,8 @@ const App: Component = () => {
     <div><Config /></div>
     {loading() && <p>Loading...</p>}
     <button onClick={async () => invoke("update_wallpaper")}>Manual update</button>
+    <button onClick={async () => invoke("cache_queue")}>Cache queue</button>
+    <button onClick={async () => invoke("get_queue").then(console.log)}>Get queue</button>
   </>;
 };
 

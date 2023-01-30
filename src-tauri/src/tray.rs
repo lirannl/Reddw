@@ -1,13 +1,18 @@
-use anyhow::Result;
-use tauri::{AppHandle, CustomMenuItem, SystemTray, SystemTrayMenu, WindowEvent, SystemTrayEvent, async_runtime, Manager};
-
-use crate::{wallpaper_changer::update_wallpaper, app_config::CONFIG};
+use crate::{
+    main_window_setup,
+    queue::DB,
+    wallpaper_changer::{update_wallpaper, Wallpaper},
+};
+use sqlx::query_as;
+use tauri::{
+    async_runtime, AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
+};
 
 pub fn setup() -> SystemTray {
     let tray = SystemTray::new().with_menu(
         SystemTrayMenu::new()
-            .add_item(CustomMenuItem::new("update_wallpaper", "Update Wallpaper"))
             .add_item(CustomMenuItem::new("open_info", "Show information"))
+            .add_item(CustomMenuItem::new("update_wallpaper", "Update Wallpaper"))
             .add_native_item(tauri::SystemTrayMenuItem::Separator)
             .add_item(CustomMenuItem::new("show", "Show"))
             .add_item(CustomMenuItem::new("quit", "Quit")),
@@ -21,22 +26,52 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
             // let item_handle = app.tray_handle().get_item(&id);
             match id.as_str() {
                 "update_wallpaper" => {
-                    async_runtime::spawn(update_wallpaper(app.app_handle()));
+                    let id = id.clone();
+                    let handle = app.app_handle();
+                    let item_handle = handle.tray_handle().get_item(&id);
+                    async_runtime::spawn(async move {
+                        item_handle
+                            .set_enabled(false)
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        item_handle
+                            .set_title("Updating...")
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        update_wallpaper(handle)
+                            .await
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        item_handle
+                            .set_title("Update Wallpaper")
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                        item_handle
+                            .set_enabled(true)
+                            .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                    });
                 }
                 "open_info" => {
-                    async_runtime::spawn(async {
-                        let config = &*CONFIG.lock().await;
-                        if let Some(current) = config.history.last()
+                    let app_clone = app.app_handle();
+                    async_runtime::spawn(async move {
+                        let mut dbconn = app_clone.state::<DB>().acquire().await?;
+                        let info_url = query_as!(
+                            Wallpaper,
+                            "---sql
+                            select * from queue 
+                            where was_set = 1
+                            order by date desc",
+                        )
+                        .fetch_optional(&mut dbconn).await?.and_then(|a| a.info_url);
+                        if let Some(info_url) = info_url
                         {
-                            open::that(&current.info_url).unwrap_or_else(|e| eprintln!("{:#?}", e));
+                            open::that(&info_url).unwrap_or_else(|e| eprintln!("{:#?}", e));
                         }
+                        Ok::<_, anyhow::Error>(())
                     });
                 }
                 "show" => {
-                    app.get_window("main")
-                        .unwrap()
-                        .show()
-                        .unwrap_or_else(|e| eprintln!("{:#?}", e));
+                    if let Some(w) = app.get_window("main") {
+                        w.set_focus().unwrap_or(());
+                    } else {
+                        main_window_setup(app.app_handle()).unwrap_or_else(|e| eprintln!("{e:#?}"));
+                    }
                 }
                 "quit" => app.exit(0),
                 _ => {}

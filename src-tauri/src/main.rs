@@ -1,14 +1,17 @@
-#![feature(async_closure)]
-#![feature(absolute_path)]
+#![windows_subsystem = "windows"]
+#![allow(incomplete_features)]
+#![feature(async_closure, async_fn_in_trait, absolute_path, let_chains)]
+
 mod app_config;
+mod queue;
 mod sources;
 mod tray;
 mod wallpaper_changer;
 
-use tauri::{
-    async_runtime::{block_on},
-    generate_handler, AppHandle, Manager,
-};
+pub use anyhow::{anyhow, Result};
+use queue::manage_queue;
+use sysinfo::{ProcessExt, SystemExt};
+use tauri::{async_runtime::block_on, generate_handler, AppHandle, Manager};
 use wallpaper_changer::setup_changer;
 
 #[allow(unused_imports)]
@@ -16,50 +19,87 @@ use window_vibrancy::{apply_acrylic, apply_vibrancy, Color};
 
 use crate::{
     app_config::{get_config, set_config},
-    wallpaper_changer::{get_history, update_wallpaper},
+    queue::{cache_queue, get_queue},
+    wallpaper_changer::update_wallpaper,
 };
 
-fn main_window_setup(app: AppHandle) {
-    let window = app.get_window("main").unwrap();
+fn main_window_setup(app: AppHandle) -> Result<()> {
+    let window =
+        tauri::WindowBuilder::new(&app, "main", tauri::WindowUrl::App("index.html".into()))
+            .title(env!("CARGO_PKG_NAME"))
+            .build()
+            .or_else(|_e| app.get_window("main").ok_or(anyhow!("Couldn't get window")))?;
     #[cfg(target_os = "windows")]
     {
-        apply_acrylic(window, None).unwrap();
+        apply_acrylic(window, None).map_err(|e| anyhow!(e))?;
     }
     #[cfg(target_os = "macos")]
     {
-        apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None).unwrap();
+        apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None)
+            .map_err(|e| anyhow!(e))?;
     }
+    Ok(())
+}
 
-    app.get_window("main")
-        .unwrap()
-        .on_window_event(move |e| match e {
-            tauri::WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                app.app_handle()
-                    .get_window("main")
-                    .unwrap()
-                    .hide()
-                    .unwrap_or_else(|e| eprintln!("{:#?}", e));
-            }
-            _ => {}
-        })
+fn prevent_duplicate_proc() -> Result<(), String> {
+    let sys = sysinfo::System::new_all();
+    let this_pid = sysinfo::get_current_pid()?;
+    let proc_name = sys
+        .process(this_pid)
+        .ok_or("Can't inspect this process")?
+        .name();
+    if sys
+        .processes_by_name(proc_name)
+        .find(|&p| p.pid() != sysinfo::get_current_pid().unwrap())
+        .is_some()
+    {
+        println!("Already running");
+        std::process::exit(0);
+    }
+    Ok(())
 }
 
 fn main() {
+    prevent_duplicate_proc()
+        .unwrap_or_else(|e| eprintln!("Error while preventing duplicate process: {e}"));
     tauri::Builder::default()
         .setup(|app| {
+            main_window_setup(app.app_handle())?;
+            match app.get_cli_matches() {
+                Err(e) => {
+                    eprintln!("{:#?}", e);
+                    std::process::exit(1);
+                }
+                Ok(matches) => {
+                    if matches.args["background"].occurrences > 0 {
+                        app.get_window("main")
+                            .ok_or(anyhow!("No main window"))
+                            .map(|w| w.close())??;
+                    }
+                }
+            }
             let tx_interval = setup_changer(app.handle());
-            main_window_setup(app.handle());
-            // Setup config watcher
-            block_on(app_config::build(app.handle(), tx_interval)).unwrap();
-            // Setup wallpaper switcher
+            match {
+                // Setup config watcher
+                block_on(app_config::build(app.handle(), tx_interval))?;
+                // Setup history
+                block_on(manage_queue(app.handle()))?;
+                Result::<(), anyhow::Error>::Ok(())
+            } {
+                Ok(()) => (),
+                Err(e) => {
+                    eprintln!("Error while setting up {e:#?}");
+                    std::process::exit(1);
+                }
+            }
             Ok(())
         })
         .invoke_handler(generate_handler![
             get_config,
             set_config,
             update_wallpaper,
-            get_history
+            cache_queue,
+            get_queue,
         ])
         .system_tray(tray::setup())
         .on_system_tray_event(tray::event_handler)
