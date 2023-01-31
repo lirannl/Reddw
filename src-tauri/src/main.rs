@@ -48,13 +48,12 @@ fn prevent_duplicate_proc() -> Result<(), String> {
         .process(this_pid)
         .ok_or("Can't inspect this process")?
         .name();
-    if sys
+    // Kill any other reddw instances (so that this one's in focus)
+    for other_proc in sys
         .processes_by_name(proc_name)
-        .find(|&p| p.pid() != sysinfo::get_current_pid().unwrap())
-        .is_some()
+        .filter(|&p| p.pid() != sysinfo::get_current_pid().unwrap())
     {
-        println!("Already running");
-        std::process::exit(0);
+        other_proc.kill();
     }
     Ok(())
 }
