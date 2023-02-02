@@ -45,7 +45,9 @@
     },
     "cli": {
       "args": [
-        {"name": "background", "short": "b"}
+        {"name": "background", "short": "b"},
+        {"name": "update", "short": "u"},
+        {"name": "fetch-cache"}
       ]
     },
     "security": {

@@ -89,7 +89,7 @@ pub async fn download_queue(app: tauri::AppHandle) -> Result<()> {
         if read_dir(config.cache_dir)?
             .filter_map(|f| Some(f.ok()?.metadata().ok()?.len()))
             .sum::<u64>()
-            < (config.cache_size * 1024.0 * 1024.0).round() as _
+            < (config.cache_size * 1024.0 * 1024.0).round() as u64
         {
             download_wallpaper(&app_clone, wallpaper.data_url).await?;
         }

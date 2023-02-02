@@ -173,7 +173,7 @@ pub async fn download_wallpaper(app_handle: &AppHandle, wp_url: impl Display) ->
         .filter_map(|f| Some(f.ok()?.metadata().ok()?.len()))
         .sum::<u64>()
         + wp_res.content_length().unwrap_or(0)
-        >= (config.cache_size * 1024.0 * 1024.0).floor() as _
+        >= (config.cache_size * 1024.0 * 1024.0).floor() as u64
     {
         let oldest_download = read_dir(&config.cache_dir)?
             .find_map(|f| {

@@ -22,6 +22,11 @@ pub fn setup() -> SystemTray {
 
 pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
     match event {
+        SystemTrayEvent::LeftClick { .. } => {
+            if app.get_window("main").is_none() {
+                main_window_setup(app.app_handle()).unwrap_or_else(|e| eprintln!("{e:#?}"));
+            };
+        }
         SystemTrayEvent::MenuItemClick { id, .. } => {
             // let item_handle = app.tray_handle().get_item(&id);
             match id.as_str() {
