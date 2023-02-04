@@ -15,7 +15,7 @@
     "@typescript-eslint/parser": "^5.43.0",
     "eslint": "^8.27.0",
     "eslint-plugin-solid": "^0.8.0",
-    "typesafe-object-paths": "C:\\Users\\Liran Piade\\Documents\\typesafe-object",
+    "typesafe-object-paths": "^1.4.0",
     "typescript": "^4.8.2",
     "vite": "^3.0.9",
     "vite-plugin-eslint": "^1.8.1",

@@ -1,7 +1,7 @@
-use std::{io::ErrorKind, process::exit};
+use std::{io::ErrorKind::{AddrInUse, self}, process::exit};
 
 use crate::{app_config::Source, main_window_setup, wallpaper_changer::update_wallpaper};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result, Error};
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -74,7 +74,7 @@ pub async fn participate(app: AppHandle) -> Result<()> {
                 Ok(listener) => {
                     spawn(async move {
                         #[allow(unreachable_code)]
-                        Result::<(), Error>::Ok({
+                        Ok::<_, Error>({
                             loop {
                                 let (mut socket, _) = listener.accept().await?;
                                 let mut buf: Vec<u8> = vec![];
@@ -83,7 +83,7 @@ pub async fn participate(app: AppHandle) -> Result<()> {
                             }
                         })
                     });
-                    Ok::<_, Error>(())
+                    Ok(())
                 }
                 Err(e) => Err(anyhow!(e)),
             }?;
