@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { Component, createEffect, createSignal, For } from 'solid-js';
 import { Config } from "./Config";
+import { History } from "./History";
 
 const App: Component = () => {
   const [loading, setLoading] = createSignal(false);
@@ -22,6 +23,7 @@ const App: Component = () => {
     <button onClick={async () => invoke("cache_queue")}>Cache queue</button>
     <button onClick={async () => invoke("exit")}>Quit</button>
     {log() && <For each={log()}>{(line) => <p>{line}</p>}</For>}
+    <History />
   </>;
 };
 
