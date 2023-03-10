@@ -3,7 +3,7 @@ use notify::{
     event::{EventKind, ModifyKind},
     recommended_watcher, RecursiveMode, Watcher,
 };
-use serde::{Deserialize, Serialize};
+use reddw_shared::AppConfig;
 use std::{
     fs::{self, read_to_string},
     path::{Path, PathBuf},
@@ -14,46 +14,6 @@ use tauri::{
     async_runtime::{block_on, Mutex, Sender},
     AppHandle, Manager,
 };
-use ts_rs::TS;
-
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
-#[ts(export)]
-pub enum Source {
-    Subreddit(String),
-}
-impl Default for Source {
-    fn default() -> Self {
-        Self::Subreddit("wallpapers".to_string())
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
-#[ts(export)]
-pub struct AppConfig {
-    /// Allow fetching wallpapers from Not Safe For Work sources (aka - sexually explicit content/gore)
-    pub allow_nsfw: bool,
-    pub sources: Vec<Source>,
-    #[ts(type = "{secs: number, nanos: number}")]
-    /// How often to switch new wallpapers (in seconds)
-    pub interval: Duration,
-    pub cache_dir: PathBuf,
-    // Max cache size, in megabytes
-    pub cache_size: f64,
-    pub history_amount: i32,
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            allow_nsfw: false,
-            sources: vec![Default::default()],
-            interval: Duration::from_secs(60 * 60),
-            cache_dir: PathBuf::new(),
-            cache_size: 100.0,
-            history_amount: 10,
-        }
-    }
-}
 
 pub trait AppHandleExt {
     fn get_config_path(&self) -> PathBuf;

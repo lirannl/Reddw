@@ -1,9 +1,8 @@
 use crate::app_config::AppHandleExt;
+use crate::sources::reddit::get_from_subreddit;
 use crate::wallpaper_changer::download_wallpaper;
-use crate::{
-    app_config::Source, sources::reddit::get_from_subreddit, wallpaper_changer::Wallpaper,
-};
 use anyhow::{anyhow, Result};
+use reddw_shared::{Wallpaper, Source};
 use sqlx::migrate::MigrateDatabase;
 use sqlx::{migrate, query, query_as, Pool, Sqlite};
 use std::fs::{self, read_dir};

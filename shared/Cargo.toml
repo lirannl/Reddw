@@ -1,0 +1,9 @@
+[package]
+name = "reddw_shared"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = { version = "0.4.23", features = ["serde"] }
+serde = {version="1.0.152", features=["derive"]}
+sqlx = {version = "0.6.2", features=['runtime-tokio-native-tls'], optional = true}

@@ -1,15 +1,14 @@
-use crate::app_config::{AppHandleExt, Source};
+use crate::app_config::AppHandleExt;
 use crate::queue::DB;
 use crate::sources::reddit::get_from_subreddit;
 use anyhow::{anyhow, Result};
-use chrono::NaiveDateTime;
 use data_encoding::BASE32;
 use mime_guess::mime::IMAGE;
 use mime_guess::Mime;
 use rand::seq::SliceRandom;
-use serde::{Deserialize, Serialize};
+use reddw_shared::{Wallpaper, Source};
 use sha2::{Digest, Sha256};
-use sqlx::{query, query_as, FromRow};
+use sqlx::{query, query_as};
 use std::fmt::Display;
 use std::fs::{self, read_dir};
 use std::str::FromStr;
@@ -19,25 +18,10 @@ use tauri::{
     AppHandle, Manager,
 };
 use tokio::time::interval;
-use ts_rs::TS;
 
 pub fn hash_url(this: &(impl Display + ?Sized)) -> String {
     let hash = Sha256::digest(this.to_string().as_bytes());
     BASE32.encode(&hash)[..7].to_string()
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, TS, FromRow)]
-#[ts(export)]
-pub struct Wallpaper {
-    pub id: String,
-    pub name: String,
-    pub data_url: String,
-    pub info_url: Option<String>,
-    #[ts(type = "string")]
-    pub date: NaiveDateTime,
-    pub source: String,
-    #[serde(skip)]
-    pub was_set: bool,
 }
 
 async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {

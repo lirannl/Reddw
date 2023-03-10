@@ -1,9 +1,10 @@
 {
   "build": {
-    "beforeBuildCommand": "npm run build",
-    "beforeDevCommand": "npm run dev",
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist"
+    "beforeBuildCommand": "cd ui; trunk build",
+    "beforeDevCommand": "cd ui; trunk serve",
+    "devPath": "http://localhost:8080",
+    "distDir": "../ui/dist",
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "reddw",
@@ -35,7 +36,7 @@
         "signingIdentity": null
       },
       "resources": [],
-      "shortDescription": "A reddit wallpaper changer, written in Rust and Solidjs",
+      "shortDescription": "A reddit wallpaper changer, written in Rust",
       "targets": "all",
       "windows": {
         "certificateThumbprint": null,
@@ -47,7 +48,8 @@
       "args": [
         {"name": "background", "short": "b"},
         {"name": "update", "short": "u"},
-        {"name": "fetch-cache"}
+        {"name": "fetch-cache"},
+        {"name": "replace", "short": "r"}
       ]
     },
     "security": {

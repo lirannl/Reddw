@@ -1,13 +1,10 @@
 use std::fmt::Display;
 
-use crate::{
-    app_config::{Source, AppHandleExt},
-    queue::DB,
-    wallpaper_changer::hash_url,
-};
+use crate::{app_config::AppHandleExt, queue::DB, wallpaper_changer::hash_url};
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use mime_guess::mime;
+use reddw_shared::Source;
 use reqwest::{Client, Method, Request, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

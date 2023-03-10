@@ -1,7 +1,12 @@
-use std::{io::ErrorKind::{AddrInUse, self}, process::exit};
+#[allow(unused_imports)]
+use std::{
+    io::ErrorKind::{self, AddrInUse},
+    process::exit,
+};
 
-use crate::{app_config::Source, main_window_setup, wallpaper_changer::update_wallpaper};
-use anyhow::{anyhow, Result, Error};
+use crate::{main_window_setup, wallpaper_changer::update_wallpaper};
+use anyhow::{anyhow, Result};
+use reddw_shared::Source;
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,6 +21,7 @@ pub enum Message {
     UpdateFromSource(Source),
     Show,
     FetchCache,
+    Replace,
 }
 
 pub async fn connect(app: AppHandle, mut writer: impl AsyncWrite + Unpin) -> Result<()> {
@@ -28,6 +34,11 @@ pub async fn connect(app: AppHandle, mut writer: impl AsyncWrite + Unpin) -> Res
                 _ => Message::UpdateWallpaper,
             },
             args if args["fetch-cache"].occurrences > 0 => Message::FetchCache,
+            args if args["replace"].occurrences == 0 => Message::Replace,
+            //debug
+            #[cfg(debug)]
+            _ => Message::Replace,
+            #[cfg(not(debug))]
             _ => Message::Show,
         })?)
         .await?;
@@ -43,6 +54,7 @@ pub async fn handle(app: AppHandle, message: Message) -> Result<()> {
             Ok(())
         }
         Message::UpdateWallpaper => update_wallpaper(app.app_handle()).await,
+        Message::Replace => exit(0),
         // Message::UpdateFromSource(source) => {
         //     update_wallpaper(app.handle()).await?;
         //     set_config(app.handle(), source).await?;

@@ -1,9 +1,10 @@
 use crate::{
     main_window_setup,
     queue::DB,
-    wallpaper_changer::{update_wallpaper, Wallpaper},
+    wallpaper_changer::{update_wallpaper},
 };
-use sqlx::query_as;
+use reddw_shared::Wallpaper;
+use sqlx::{*};
 use tauri::{
     async_runtime, AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
 };
@@ -56,9 +57,7 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                     let app_clone = app.app_handle();
                     async_runtime::spawn(async move {
                         let mut dbconn = app_clone.state::<DB>().acquire().await?;
-                        let info_url = query_as!(
-                            Wallpaper,
-                            "---sql
+                        let info_url = query_as!(Wallpaper, "
                             select * from queue 
                             where was_set = 1
                             order by date desc",
