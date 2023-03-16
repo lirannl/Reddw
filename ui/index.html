@@ -2,9 +2,19 @@
 <html>
 
 <head>
-    <!-- <script data-trunk src="glue.js"></script> -->
     <meta charset="utf-8" />
     <title>Yew App</title>
+    <script>
+        const invoke = window.__TAURI__.invoke;
+        const listen = window.__TAURI__.window.listen;
+        const callback_test = (callback) => {
+            if (typeof callback == "function")
+            {
+                callback("Hello from JS!");
+                callback("Hello from JS another time!");
+            }
+        };
+    </script>
 </head>
 
 </html>

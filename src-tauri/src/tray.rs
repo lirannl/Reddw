@@ -29,7 +29,6 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
             };
         }
         SystemTrayEvent::MenuItemClick { id, .. } => {
-            // let item_handle = app.tray_handle().get_item(&id);
             match id.as_str() {
                 "update_wallpaper" => {
                     let id = id.clone();

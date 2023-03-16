@@ -41,6 +41,8 @@ fn main_window_setup(app: AppHandle) -> Result<()> {
     Ok(())
 }
 
+
+
 #[tauri::command]
 fn exit()
 {
