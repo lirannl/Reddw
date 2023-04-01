@@ -18,7 +18,7 @@ use wallpaper_changer::setup_changer;
 use window_vibrancy::{apply_acrylic, apply_vibrancy, Color};
 
 use crate::{
-    app_config::{get_config, set_config},
+    app_config::{get_config, set_config, select_folder},
     queue::{cache_queue, get_queue},
     wallpaper_changer::update_wallpaper,
 };
@@ -80,6 +80,7 @@ fn main() {
             update_wallpaper,
             cache_queue,
             get_queue,
+            select_folder,
             exit,
         ])
         .system_tray(tray::setup())

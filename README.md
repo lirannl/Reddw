@@ -8,6 +8,6 @@ cd src-tauri
 # For development
 cargo tauri dev
 # For release
-npm build && cargo build -r
+cargo tauri build
 ```
-Release executable will be src-tauri/target/release/reddw.exe
+Release executable will be src-tauri/target/release/reddw(.exe)

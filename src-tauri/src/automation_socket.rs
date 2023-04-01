@@ -1,7 +1,10 @@
-use std::{io::ErrorKind::{AddrInUse, self}, process::exit};
+use std::{
+    io::ErrorKind::{self},
+    process::exit,
+};
 
 use crate::{app_config::Source, main_window_setup, wallpaper_changer::update_wallpaper};
-use anyhow::{anyhow, Result, Error};
+use anyhow::{anyhow, Result};
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

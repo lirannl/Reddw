@@ -14,6 +14,7 @@ use tauri::{
     async_runtime::{block_on, Mutex, Sender},
     AppHandle, Manager,
 };
+use rfd;
 use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -79,7 +80,10 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
     let config_path_clone = config_path.clone();
     if !config_path.exists() {
         let mut config = AppConfig::default();
-        config.cache_dir = app.path_resolver().app_cache_dir().unwrap_or(Path::new("").to_path_buf());
+        config.cache_dir = app
+            .path_resolver()
+            .app_cache_dir()
+            .unwrap_or(Path::new("").to_path_buf());
         let config_json = serde_json::to_string_pretty(&config)?;
         fs::write(&config_path, config_json)?;
     }
@@ -111,9 +115,7 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
                                 .try_send(config.interval)
                                 .or_else(|e| Err(anyhow!("{:#?}", e)))?;
                         }
-                        if let Some(main) = app.get_window("main") {
-                            main.emit("config_changed", Some(config.clone()))?;
-                        }
+                        app.emit_all("config_changed", Some(config.clone()))?;
                         *block_on(app.state::<Mutex<AppConfig>>().lock()) = config;
                         Ok(())
                     })().unwrap_or_else(|err| {
@@ -145,4 +147,11 @@ pub async fn set_config(app: tauri::AppHandle, app_config: AppConfig) -> tauri::
     let config_json = serde_json::to_string_pretty(&app_config)?;
     fs::write(app.get_config_path(), config_json)?;
     Ok(())
+}
+
+
+#[tauri::command]
+pub async fn select_folder() -> Result<String, String> {
+  let folder = rfd::AsyncFileDialog::new().pick_folder().await.ok_or("No folder picked")?;
+  Ok(folder.path().to_str().ok_or("Invalid path")?.to_string())
 }
