@@ -1,5 +1,5 @@
 use crate::app_config::{AppHandleExt, Source};
-use crate::queue::DB;
+use crate::queue::{trim_queue, DB};
 use crate::sources::reddit::get_from_subreddit;
 use anyhow::{anyhow, Result};
 use chrono::NaiveDateTime;
@@ -36,7 +36,6 @@ pub struct Wallpaper {
     #[ts(type = "string")]
     pub date: NaiveDateTime,
     pub source: String,
-    #[serde(skip)]
     pub was_set: bool,
 }
 
@@ -81,6 +80,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
             Ok(wallpaper)
         }
     }?;
+    trim_queue(&app_handle).await?;
     let cache_dir = &app_handle.get_config().await.cache_dir;
     let cache_dir_clone = cache_dir.clone();
     let downloaded_file = fs::read_dir(cache_dir)?.find_map(|e| {
@@ -213,4 +213,55 @@ pub async fn update_wallpaper(app_handle: AppHandle) -> Result<(), String> {
         eprintln!("{e:#?}");
         e.to_string()
     })
+}
+
+async fn set_wallpaper_internal(app_handle: AppHandle, wallpaper: Wallpaper) -> Result<()> {
+    let cache_dir = &app_handle.get_config().await.cache_dir;
+    let cache_dir_clone = cache_dir.clone();
+    let downloaded_file = fs::read_dir(cache_dir)?.find_map(|e| {
+        if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok() &&
+                 hash_url(&name) == wallpaper.id
+            {Some(name)}
+            else {None}
+    });
+
+    let wallpaper_path = if let Some(path) = downloaded_file {
+        Ok(cache_dir_clone.join(path))
+    } else {
+        download_wallpaper(&app_handle, &wallpaper.data_url)
+            .await
+            .map(|p| cache_dir_clone.join(p))
+    }?;
+
+    wallpaper::set_from_path(
+        wallpaper_path
+            .to_str()
+            .ok_or("Invalid path")
+            .map_err(|e| anyhow!("{e:#?}"))?,
+    )
+    .map_err(|e| anyhow!(e.to_string()))?;
+
+    let now = chrono::Utc::now().naive_utc();
+    query!(
+        "---sql
+            update queue set was_set = 1, date = $1 where id = $2",
+        now,
+        wallpaper.id
+    )
+    .execute(&mut app_handle.state::<DB>().acquire().await?)
+    .await?;
+
+    app_handle
+        .tray_handle()
+        .get_item("open_info")
+        .set_title(wallpaper.name.as_str())?;
+    eprintln!("New wallpaper: {:#?}", wallpaper);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Result<(), String> {
+    set_wallpaper_internal(app_handle, wallpaper)
+        .await
+        .map_err(|err| err.to_string())
 }

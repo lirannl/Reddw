@@ -16,7 +16,7 @@
     });
 
     const onFormChange = (
-        e: Event & { currentTarget: EventTarget & HTMLFormElement }
+        _e: Event & { currentTarget: EventTarget & HTMLFormElement }
     ) => {
         invoke("set_config", { appConfig: config });
     };
@@ -24,64 +24,148 @@
     const removeSource = (i: number) => {
         config.sources.splice(i, 1);
         srcTypes.splice(i, 1);
-        onFormChange({ currentTarget: null } as any);
     };
 </script>
 
-<form on:change={onFormChange}>
-    <label>
-        Allow NSFW
-        <input type="checkbox" bind:checked={config.allow_nsfw} />
-    </label>
-    <div>
-        Sources:
-        {#each config.sources as source, i}
-            <div>
-                <select bind:value={srcTypes[i]}>
-                    {#each sourceTypes as sourceType}
-                        <option value={sourceType}>{sourceType}</option>
-                    {/each}
-                </select>
-                <input type="text" bind:value={source[srcTypes[i]]} />
-                <button on:click={() => removeSource(i)}>-</button>
+<form
+    on:change={onFormChange}
+    class="card card-compact m-auto bg-base-100 shadow-xl"
+    style="width:94%"
+>
+    <card-body class="card-body">
+        <h2 class="card-title">Configuration</h2>
+        <collapse class="collapse collapse-arrow">
+            <input type="checkbox" />
+            <div class="collapse-title text-xl font-medium">Sources</div>
+            <div class="collapse-content">
+                {#each config.sources as source, i}
+                    <div class="input-group max-w-xs">
+                        <select
+                            class="select select-primary"
+                            bind:value={srcTypes[i]}
+                        >
+                            {#each sourceTypes as sourceType}
+                                <option value={sourceType}>{sourceType}</option>
+                            {/each}
+                        </select>
+                        <input
+                            type="text"
+                            bind:value={source[srcTypes[i]]}
+                            class="input input-bordered"
+                        />
+                        <button
+                            class="btn btn-secondary"
+                            on:click={() => removeSource(i)}>-</button
+                        >
+                    </div>
+                {/each}
+                <button
+                    class="btn"
+                    on:click={(e) => {
+                        e.preventDefault();
+                        config.sources = [
+                            ...config.sources,
+                            { [sourceTypes[0]]: "" },
+                        ];
+                        srcTypes = [...srcTypes, sourceTypes[0]];
+                    }}>Add source</button
+                >
             </div>
-        {/each}
-        <button
-            on:click={(e) => {
-                e.preventDefault();
-                config.sources = [...config.sources, { [sourceTypes[0]]: "" }];
-                srcTypes = [...srcTypes, sourceTypes[0]];
-            }}>Add source</button
-        >
-    </div>
-    <label>
-        Update interval:
-        <input
-            value={config.interval.secs + config.interval.nanos / 1000000000}
-            on:change={(e) => {
-                const val = parseFloat(e.currentTarget.value);
-                config.interval.secs = Math.floor(val);
-                config.interval.nanos = Math.floor(
-                    (val - config.interval.secs) * 1000000000
-                );
-            }}
-        />
-    </label><br />
-    <label>
-        Cache directory: <input bind:value={config.cache_dir} />
-        <button
-            on:click={async (e) => {
-                e.preventDefault();
-                config.cache_dir = await invoke("select_folder");
-            }}>Select folder</button
-        >
-    </label><br />
-    <label>
-        Max items in history:
-        <input bind:value={config.history_amount} />
-    </label><br />
-    <label>
-        Max cache size:
-        <input type="number" bind:value={config.cache_size} />
-    </label>
+        </collapse>
+        <div class="grid grid-cols-3 gap-4">
+            <form-control class="form-control">
+                <label for="allow_nsfw" class="label cursor-pointer">
+                    <span class="label-text">Allow NSFW</span>
+                </label>
+                <input
+                    id="allow_nsfw"
+                    type="checkbox"
+                    bind:checked={config.allow_nsfw}
+                    class="checkbox"
+                />
+            </form-control>
+            <form-control class="form-control">
+                <label for="theme" class="label">
+                    <span class="label-text">Theme</span>
+                </label>
+                <input
+                    id="theme"
+                    type="text"
+                    bind:value={config.theme}
+                    class="input input-bordered w-full max-w-xs"
+                />
+            </form-control>
+            <form-control class="form-control">
+                <label for="updateInterval" class="label">
+                    <span class="label-text">Interval (secs)</span>
+                </label>
+                <input
+                    id="updateInterval"
+                    type="text"
+                    value={config.interval.secs +
+                        config.interval.nanos / 1000000000}
+                    on:change={(e) => {
+                        const val = parseFloat(e.currentTarget.value);
+                        config.interval.secs = Math.floor(val);
+                        config.interval.nanos = Math.floor(
+                            (val - config.interval.secs) * 1000000000
+                        );
+                    }}
+                    class="input input-bordered w-full max-w-xs"
+                />
+            </form-control>
+            <form-control class="form-control">
+                <label for="folder" class="label">
+                    <span class="label-text">Cache directory</span>
+                </label>
+                <div class="input-group">
+                    <input
+                        id="folder"
+                        type="text"
+                        bind:value={config.cache_dir}
+                        class="input input-bordered w-full max-w-xs"
+                    />
+                    <button
+                        class="btn"
+                        on:click={async (e) => {
+                            e.preventDefault();
+                            config.cache_dir = await invoke("select_folder");
+                        }}
+                        ><svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            fill={getComputedStyle(document.body).color}
+                            viewBox="0 0 24 24"
+                            ><path
+                                d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+                            /></svg
+                        ></button
+                    >
+                </div>
+            </form-control>
+            <form-control class="form-control">
+                <label for="history_amount" class="label">
+                    <span class="label-text">Max items in history</span>
+                </label>
+                <input
+                    id="history_amount"
+                    type="text"
+                    bind:value={config.history_amount}
+                    class="input input-bordered w-full max-w-xs"
+                />
+            </form-control>
+            <form-control class="form-control">
+                <label for="cache_size" class="label">
+                    <span class="label-text">Max cache size</span>
+                </label>
+                <input
+                    id="cache_size"
+                    type="text"
+                    bind:value={config.cache_size}
+                    class="input input-bordered w-full max-w-xs"
+                />
+            </form-control>
+        </div>
+    </card-body>
 </form>

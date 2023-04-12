@@ -3,6 +3,7 @@ use notify::{
     event::{EventKind, ModifyKind},
     recommended_watcher, RecursiveMode, Watcher,
 };
+use rfd;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, read_to_string},
@@ -14,7 +15,6 @@ use tauri::{
     async_runtime::{block_on, Mutex, Sender},
     AppHandle, Manager,
 };
-use rfd;
 use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -41,6 +41,7 @@ pub struct AppConfig {
     // Max cache size, in megabytes
     pub cache_size: f64,
     pub history_amount: i32,
+    pub theme: String,
 }
 
 impl Default for AppConfig {
@@ -52,6 +53,7 @@ impl Default for AppConfig {
             cache_dir: PathBuf::new(),
             cache_size: 100.0,
             history_amount: 10,
+            theme: "default".to_string(),
         }
     }
 }
@@ -149,9 +151,11 @@ pub async fn set_config(app: tauri::AppHandle, app_config: AppConfig) -> tauri::
     Ok(())
 }
 
-
 #[tauri::command]
 pub async fn select_folder() -> Result<String, String> {
-  let folder = rfd::AsyncFileDialog::new().pick_folder().await.ok_or("No folder picked")?;
-  Ok(folder.path().to_str().ok_or("Invalid path")?.to_string())
+    let folder = rfd::AsyncFileDialog::new()
+        .pick_folder()
+        .await
+        .ok_or("No folder picked")?;
+    Ok(folder.path().to_str().ok_or("Invalid path")?.to_string())
 }

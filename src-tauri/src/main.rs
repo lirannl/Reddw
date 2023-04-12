@@ -1,6 +1,12 @@
 #![windows_subsystem = "windows"]
 #![allow(incomplete_features)]
-#![feature(async_closure, async_fn_in_trait, absolute_path, let_chains, if_let_guard)]
+#![feature(
+    async_closure,
+    async_fn_in_trait,
+    absolute_path,
+    let_chains,
+    if_let_guard
+)]
 
 mod app_config;
 mod automation_socket;
@@ -9,41 +15,42 @@ mod sources;
 mod tray;
 mod wallpaper_changer;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use queue::manage_queue;
-use tauri::{api::cli, async_runtime::block_on, generate_handler, AppHandle, Manager};
+use tauri::{api::cli, async_runtime::block_on, generate_handler, AppHandle, Manager, Window};
 use wallpaper_changer::setup_changer;
 
 #[allow(unused_imports)]
 use window_vibrancy::{apply_acrylic, apply_vibrancy, Color};
 
 use crate::{
-    app_config::{get_config, set_config, select_folder},
+    app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},
-    wallpaper_changer::update_wallpaper,
+    wallpaper_changer::{set_wallpaper, update_wallpaper},
 };
 
-fn main_window_setup(app: AppHandle) -> Result<()> {
+fn main_window_setup(app: AppHandle) -> Result<Window> {
     let window =
         tauri::WindowBuilder::new(&app, "main", tauri::WindowUrl::App("index.html".into()))
             .title(env!("CARGO_PKG_NAME"))
+            .transparent(true)
+            .visible(false)
             .build()
             .or_else(|_e| app.get_window("main").ok_or(anyhow!("Couldn't get window")))?;
     #[cfg(target_os = "windows")]
     {
-        apply_acrylic(window, None).map_err(|e| anyhow!(e))?;
+        apply_acrylic(&window, None).map_err(|e| anyhow!(e))?;
     }
     #[cfg(target_os = "macos")]
     {
-        apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None)
+        apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, None)
             .map_err(|e| anyhow!(e))?;
     }
-    Ok(())
+    Ok(window)
 }
 
 #[tauri::command]
-fn exit()
-{
+fn exit() {
     std::process::exit(0);
 }
 
@@ -57,6 +64,10 @@ fn main() {
                 app.get_window("main")
                     .ok_or(anyhow!("No main window"))
                     .map(|w| w.close())??;
+            } else {
+                app.get_window("main")
+                    .ok_or(anyhow!("No main window"))
+                    .map(|w| w.show())??;
             };
             let tx_interval = setup_changer(app.handle());
             match {
@@ -81,6 +92,7 @@ fn main() {
             cache_queue,
             get_queue,
             select_folder,
+            set_wallpaper,
             exit,
         ])
         .system_tray(tray::setup())

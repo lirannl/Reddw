@@ -33,7 +33,7 @@ pub async fn get_queue(app: tauri::AppHandle) -> Result<Vec<Wallpaper>, String> 
     let db = app.state::<DB>();
     let queue = query_as!(
         Wallpaper,
-        "SELECT * FROM queue where was_set = 0 ORDER BY date DESC"
+        "SELECT * FROM queue ORDER BY date DESC"
     )
     .fetch_all(&mut db.acquire().await.map_err(|e| e.to_string())?)
     .await
@@ -80,7 +80,9 @@ pub async fn cache_queue(app: tauri::AppHandle) -> Result<usize, String> {
 }
 
 pub async fn download_queue(app: tauri::AppHandle) -> Result<()> {
-    let queue = get_queue(app.app_handle()).await.map_err(|e| anyhow!(e))?;
+    let queue = get_queue(app.app_handle())
+        .await
+        .map_err(|e| anyhow!(e))?;
     for wallpaper in queue {
         let app_clone = app.app_handle();
 

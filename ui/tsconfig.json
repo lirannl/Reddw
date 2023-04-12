@@ -15,20 +15,9 @@
     "checkJs": true,
     "isolatedModules": true,
     "paths": {
-      "$rs/*": [
-        "../src-tauri/bindings/*"
-      ],
-    },
-  },
-  "include": [
-    "src/**/*.d.ts",
-    "src/**/*.ts",
-    "src/**/*.js",
-    "src/**/*.svelte"
-  ],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
+      "$rs/*": ["../src-tauri/bindings/*"]
     }
-  ]
+  },
+  "include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

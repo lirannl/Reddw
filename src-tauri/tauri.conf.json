@@ -1,7 +1,7 @@
 {
   "build": {
-    "beforeBuildCommand": "pnpm -C ui run build",
-    "beforeDevCommand": "pnpm -C ui run dev",
+    "beforeBuildCommand": "pnpm -C ui build",
+    "beforeDevCommand": "pnpm -C ui dev",
     "devPath": "http://localhost:5173",
     "distDir": "../ui/dist"
   },
@@ -45,9 +45,21 @@
     },
     "cli": {
       "args": [
-        {"name": "background", "short": "b"},
-        {"name": "update", "short": "u"},
-        {"name": "fetch-cache"}
+        {
+          "name": "background",
+          "short": "b"
+        },
+        {
+          "name": "update",
+          "short": "u"
+        },
+        {
+          "name": "fetch-cache"
+        },
+        {
+          "name": "quit",
+          "short": "q"
+        }
       ]
     },
     "security": {

@@ -10,15 +10,21 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^2.0.3",
+    "@locator/runtime": "^0.2.4",
+    "@sveltejs/vite-plugin-svelte": "^2.0.4",
     "@tsconfig/svelte": "^3.0.0",
-    "svelte": "^3.55.1",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.21",
+    "semver": "^7.4.0",
+    "svelte": "^3.58.0",
     "svelte-check": "^2.10.3",
+    "tailwindcss": "^3.3.1",
     "tslib": "^2.5.0",
-    "typescript": "^4.9.3",
-    "vite": "^4.2.0"
+    "typescript": "^4.9.5",
+    "vite": "^4.2.1"
   },
   "dependencies": {
-    "@tauri-apps/api": "^1.2.0"
+    "@tauri-apps/api": "^1.2.0",
+    "daisyui": "^2.51.5"
   }
 }

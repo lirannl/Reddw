@@ -24,7 +24,9 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
     match event {
         SystemTrayEvent::LeftClick { .. } => {
             if app.get_window("main").is_none() {
-                main_window_setup(app.app_handle()).unwrap_or_else(|e| eprintln!("{e:#?}"));
+                main_window_setup(app.app_handle())
+                    .map(|_w| {})
+                    .unwrap_or_else(|e| eprintln!("{e:#?}"));
             };
         }
         SystemTrayEvent::MenuItemClick { id, .. } => {
@@ -63,9 +65,10 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                             where was_set = 1
                             order by date desc",
                         )
-                        .fetch_optional(&mut dbconn).await?.and_then(|a| a.info_url);
-                        if let Some(info_url) = info_url
-                        {
+                        .fetch_optional(&mut dbconn)
+                        .await?
+                        .and_then(|a| a.info_url);
+                        if let Some(info_url) = info_url {
                             open::that(&info_url).unwrap_or_else(|e| eprintln!("{:#?}", e));
                         }
                         Ok::<_, anyhow::Error>(())
@@ -75,7 +78,9 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                     if let Some(w) = app.get_window("main") {
                         w.set_focus().unwrap_or(());
                     } else {
-                        main_window_setup(app.app_handle()).unwrap_or_else(|e| eprintln!("{e:#?}"));
+                        main_window_setup(app.app_handle())
+                            .map(|_w| {})
+                            .unwrap_or_else(|e| eprintln!("{e:#?}"));
                     }
                 }
                 "quit" => app.exit(0),

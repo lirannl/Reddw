@@ -19,6 +19,7 @@ pub enum Message {
     UpdateFromSource(Source),
     Show,
     FetchCache,
+    Quit,
 }
 
 pub async fn connect(app: AppHandle, mut writer: impl AsyncWrite + Unpin) -> Result<()> {
@@ -31,6 +32,7 @@ pub async fn connect(app: AppHandle, mut writer: impl AsyncWrite + Unpin) -> Res
                 _ => Message::UpdateWallpaper,
             },
             args if args["fetch-cache"].occurrences > 0 => Message::FetchCache,
+            args if args["quit"].occurrences > 0 => Message::Quit,
             _ => Message::Show,
         })?)
         .await?;
@@ -41,7 +43,7 @@ pub async fn handle(app: AppHandle, message: Message) -> Result<()> {
     match message {
         Message::Show => {
             if app.get_window("main").is_none() {
-                main_window_setup(app.app_handle())?;
+                main_window_setup(app.app_handle())?.show()?;
             };
             Ok(())
         }
@@ -50,6 +52,7 @@ pub async fn handle(app: AppHandle, message: Message) -> Result<()> {
         //     update_wallpaper(app.handle()).await?;
         //     set_config(app.handle(), source).await?;
         // },
+        Message::Quit => Ok(app.exit(0)),
         _ => Ok(()),
     }
     .map_err(|e| anyhow!(e))?;
