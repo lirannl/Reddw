@@ -1,13 +1,14 @@
-use std::{fs::remove_file, io::ErrorKind, process::exit};
-
 use crate::{app_config::Source, main_window_setup, wallpaper_changer::update_wallpaper};
 use anyhow::{anyhow, Result};
+#[cfg(target_family = "unix")]
+use fs::remove_file;
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
+use std::{io::ErrorKind, process::exit};
 use tauri::{async_runtime::spawn, AppHandle, Manager};
 use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 #[cfg(target_family = "windows")]
-use tokio::net::windows::named_pipe;
+use {std::io, tokio::net::windows::named_pipe};
 
 #[derive(clap::Parser, Debug, Clone)]
 #[clap(version = "1.0", author)]
