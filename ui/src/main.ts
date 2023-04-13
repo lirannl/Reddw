@@ -1,6 +1,6 @@
 import './app.css'
 import setupLocatorUI from "@locator/runtime";
-import App from './App.svelte'
+import Main from './Main.svelte'
 
 if (import.meta.env.DEV) {
   setupLocatorUI({
@@ -9,7 +9,7 @@ if (import.meta.env.DEV) {
   });
 }
 
-const app = new App({
+const app = new Main({
   target: document.body,
 })
 

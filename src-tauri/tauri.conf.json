@@ -43,25 +43,6 @@
         "timestampUrl": ""
       }
     },
-    "cli": {
-      "args": [
-        {
-          "name": "background",
-          "short": "b"
-        },
-        {
-          "name": "update",
-          "short": "u"
-        },
-        {
-          "name": "fetch-cache"
-        },
-        {
-          "name": "quit",
-          "short": "q"
-        }
-      ]
-    },
     "security": {
       "csp": null
     },

@@ -73,7 +73,7 @@ impl AppHandleExt for AppHandle {
     }
 }
 
-pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()> {
+pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()> {
     let config_dir = app.path_resolver().app_config_dir().unwrap();
     if !&config_dir.exists() {
         fs::create_dir_all(&config_dir)?;
@@ -91,13 +91,12 @@ pub async fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> taur
     }
     {
         let config_json = read_to_string(&config_path).unwrap();
-        if config_json == "" {
-            return Ok(());
-        }
         let config: AppConfig = serde_json::from_str(&config_json).unwrap_or_else(|e| {
             println!("Failed to parse config: {:#?}", e);
             let mut def_conf = AppConfig::default();
             def_conf.cache_dir = app.path_resolver().app_cache_dir().unwrap();
+            let def_conf_str = serde_json::to_string_pretty(&def_conf).expect("Failed to serialize default config");
+            fs::write(&config_path, def_conf_str).expect("Failed to write default config");
             def_conf
         });
         tx_interval

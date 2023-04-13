@@ -1,22 +1,38 @@
+<script lang="ts" context="module">
+  import { writable } from "svelte/store";
+  export const configuration = writable({} as AppConfig);
+  export const wp_list = writable([] as Wallpaper[]);
+</script>
+
 <script lang="ts">
-  import type { AppConfig } from "$rs/AppConfig";
   import { invoke } from "@tauri-apps/api";
   import Config from "./Config.svelte";
+  import type { AppConfig } from "$rs/AppConfig";
   import type { Wallpaper } from "$rs/Wallpaper";
-  const initConfigPromise = invoke<AppConfig>("get_config");
-  const queuePromise = invoke<Wallpaper[]>("get_queue");
+
+  let config: AppConfig;
+  export let initConfig: AppConfig;
+  configuration.set(initConfig);
+  configuration.subscribe((c) => (config = c));
+  export let initQueue: Wallpaper[];
+  wp_list.subscribe(async (l) => {
+    const current = l.find((w) => w.was_set);
+    if (current)
+      console.log(await invoke("get_wallpaper_path", { wallpaper: current }));
+  });
+  wp_list.set(initQueue);
 </script>
 
 <main class="w-screen h-screen">
-  {#await initConfigPromise}
-    <div>Loading...</div>
-  {:then initConfig}
-    <Config config={initConfig} />
-  {/await}
+  <Config />
   <button-group class="btn-group">
-    <button class="btn" on:click={() => invoke("cache_queue")}>Cache upcoming</button>
-    <button class="btn" on:click={() => invoke("update_wallpaper")}>Update wallpaper</button
+    <button class="btn" on:click={() => invoke("cache_queue")}
+      >Cache upcoming</button
     >
-    <button class="btn btn-warning" on:click={() => invoke("exit")}>Quit</button>
+    <button class="btn" on:click={() => invoke("update_wallpaper")}
+      >Update wallpaper</button
+    >
+    <button class="btn btn-warning" on:click={() => invoke("exit")}>Quit</button
+    >
   </button-group>
 </main>

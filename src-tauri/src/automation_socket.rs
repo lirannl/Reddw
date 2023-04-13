@@ -1,17 +1,26 @@
-use std::{
-    io::ErrorKind::{self},
-    process::exit,
-};
+use std::{fs::remove_file, io::ErrorKind, process::exit};
 
 use crate::{app_config::Source, main_window_setup, wallpaper_changer::update_wallpaper};
 use anyhow::{anyhow, Result};
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use tauri::{api::cli, async_runtime::spawn, AppHandle, Manager};
-use tokio::io::{self, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tauri::{async_runtime::spawn, AppHandle, Manager};
+use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 #[cfg(target_family = "windows")]
 use tokio::net::windows::named_pipe;
+
+#[derive(clap::Parser, Debug, Clone)]
+#[clap(version = "1.0", author)]
+pub struct Args {
+    #[arg(short, long)]
+    pub background: bool,
+    #[arg(short, long)]
+    pub quit: bool,
+    #[arg(short, long)]
+    pub update: bool,
+    #[arg(short, long)]
+    pub fetch: bool,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
@@ -22,18 +31,18 @@ pub enum Message {
     Quit,
 }
 
-pub async fn connect(app: AppHandle, mut writer: impl AsyncWrite + Unpin) -> Result<()> {
+pub async fn connect(args: &Args, mut writer: impl AsyncWrite + Unpin) -> Result<()> {
     writer
-        .write_all(&to_vec(&match &app.state::<cli::Matches>().args {
-            args if args["update"].occurrences > 0 => match &args["update"].value {
-                Value::Array(a) if let [Value::String(src), Value::String(subreddit)] = &a[..] && src == "subreddit" => {
-                    Message::UpdateFromSource(Source::Subreddit(subreddit.clone()))
-                },
-                _ => Message::UpdateWallpaper,
-            },
-            args if args["fetch-cache"].occurrences > 0 => Message::FetchCache,
-            args if args["quit"].occurrences > 0 => Message::Quit,
-            _ => Message::Show,
+        .write_all(&to_vec(&{
+            if args.quit {
+                Message::Quit
+            } else if args.fetch {
+                Message::FetchCache
+            } else if args.update {
+                Message::UpdateWallpaper
+            } else {
+                Message::Show
+            }
         })?)
         .await?;
     Ok(())
@@ -67,32 +76,38 @@ pub async fn handle(app: AppHandle, message: Message) -> Result<()> {
 
 static SOCKET_ID: &str = include_str!("../../automation_socket.txt");
 
-pub async fn participate(app: AppHandle) -> Result<()> {
+pub async fn participate(args: &Args, app: AppHandle) -> Result<()> {
     {
         #[cfg(target_family = "unix")]
         {
-            match tokio::net::UnixListener::bind(SOCKET_ID) {
-                Err(e) if e.kind() == AddrInUse => {
-                    let stream = tokio::net::UnixStream::connect(SOCKET_ID).await?;
-                    connect(app.app_handle(), stream).await?;
+            let socket_path = format!(
+                "/tmp/reddw-{SOCKET_ID}-{}.sock",
+                hex::encode(whoami::username())
+            );
+            let mut listener = tokio::net::UnixListener::bind(socket_path.clone());
+            if let Err(e) = &listener && e.kind() == ErrorKind::AddrInUse {
+                let stream_result = tokio::net::UnixStream::connect(socket_path.clone()).await;
+                if let Ok(mut stream) = stream_result
+                {
+                    connect(args, &mut stream).await?;
                     exit(0);
                 }
-                Ok(listener) => {
-                    spawn(async move {
-                        #[allow(unreachable_code)]
-                        Ok::<_, Error>({
-                            loop {
-                                let (mut socket, _) = listener.accept().await?;
-                                let mut buf: Vec<u8> = vec![];
-                                socket.read_to_end(&mut buf).await?;
-                                handle(app.app_handle(), from_slice(&buf)?).await?;
-                            }
-                        })
-                    });
-                    Ok(())
+                else if let Err(e) = stream_result && e.kind() == ErrorKind::ConnectionRefused {
+                    remove_file(socket_path.clone())?;
+                    listener = tokio::net::UnixListener::bind(socket_path.clone());
                 }
-                Err(e) => Err(anyhow!(e)),
-            }?;
+            }
+            let listener = listener?;
+            spawn(async move {
+                loop {
+                    let (mut stream, _) = listener.accept().await.unwrap();
+                    let mut buf = vec![];
+                    stream.read_buf(&mut buf).await.unwrap();
+
+                    let app = app.app_handle();
+                    tokio::spawn(async move { handle(app, from_slice(&buf).unwrap()).await });
+                }
+            });
         }
         #[cfg(target_family = "windows")]
         {
@@ -103,7 +118,7 @@ pub async fn participate(app: AppHandle) -> Result<()> {
             {
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
                     let mut client = named_pipe::ClientOptions::new().open(&socket_id)?;
-                    connect(app.app_handle(), &mut client).await?;
+                    connect(args, &mut client).await?;
                     #[allow(unreachable_code)]
                     return Ok(exit(0));
                 }

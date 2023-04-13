@@ -14,20 +14,21 @@ mod queue;
 mod sources;
 mod tray;
 mod wallpaper_changer;
-
-use anyhow::{anyhow, Result};
-use queue::manage_queue;
-use tauri::{api::cli, async_runtime::block_on, generate_handler, AppHandle, Manager, Window};
-use wallpaper_changer::setup_changer;
-
-#[allow(unused_imports)]
-use window_vibrancy::{apply_acrylic, apply_vibrancy, Color};
-
 use crate::{
     app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},
     wallpaper_changer::{set_wallpaper, update_wallpaper},
 };
+use anyhow::{anyhow, Result};
+use automation_socket::Args;
+use clap::Parser;
+use queue::manage_queue;
+use tauri::{async_runtime::block_on, generate_handler, AppHandle, Manager, Window};
+use wallpaper_changer::setup_changer;
+#[cfg(target_os = "windows")]
+use window_vibrancy::apply_acrylic;
+#[cfg(target_os = "macos")]
+use window_vibrancy::{apply_vibrancy, Color};
 
 fn main_window_setup(app: AppHandle) -> Result<Window> {
     let window =
@@ -37,6 +38,8 @@ fn main_window_setup(app: AppHandle) -> Result<Window> {
             .visible(false)
             .build()
             .or_else(|_e| app.get_window("main").ok_or(anyhow!("Couldn't get window")))?;
+    #[cfg(development)]
+    window.open_devtools();
     #[cfg(target_os = "windows")]
     {
         apply_acrylic(&window, None).map_err(|e| anyhow!(e))?;
@@ -55,12 +58,12 @@ fn exit() {
 }
 
 fn main() {
+    let args = Args::parse();
     tauri::Builder::default()
-        .setup(|app| {
-            app.manage(app.get_cli_matches().unwrap());
+        .setup(move |app| {
             main_window_setup(app.app_handle())?;
-            block_on(automation_socket::participate(app.app_handle()))?;
-            if app.state::<cli::Matches>().args["background"].occurrences > 0 {
+            block_on(automation_socket::participate(&args, app.app_handle()))?;
+            if args.background {
                 app.get_window("main")
                     .ok_or(anyhow!("No main window"))
                     .map(|w| w.close())??;
@@ -72,7 +75,7 @@ fn main() {
             let tx_interval = setup_changer(app.handle());
             match {
                 // Setup config watcher
-                block_on(app_config::build(app.handle(), tx_interval))?;
+                app_config::build(app.handle(), tx_interval)?;
                 // Setup history
                 block_on(manage_queue(app.handle()))?;
                 Result::<(), anyhow::Error>::Ok(())

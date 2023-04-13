@@ -4,15 +4,21 @@
     import { invoke } from "@tauri-apps/api";
     import { listen } from "@tauri-apps/api/event";
     import { sourceTypes } from "./types/source";
-
-    export let config: AppConfig;
+    import { getContext, setContext } from "svelte";
+    import { configuration } from "./App.svelte";
+    import { get } from "svelte/store";
+    let config = get(configuration);
+    configuration.subscribe((cfg) => {
+        config = cfg;
+    });
+    $: configuration.set(config);
     const getSrcTypes = (cfg: AppConfig) =>
         cfg.sources.map((src) => Object.keys(src)[0] as keyof Source);
 
     let srcTypes: (keyof Source)[] = getSrcTypes(config);
     listen<AppConfig>("config_changed", ({ payload }) => {
         srcTypes = getSrcTypes(payload);
-        config = payload;
+        configuration.set(payload);
     });
 
     const onFormChange = (

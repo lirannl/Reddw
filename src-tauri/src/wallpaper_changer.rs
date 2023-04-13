@@ -128,7 +128,11 @@ pub fn setup_changer(app_handle: AppHandle) -> Sender<Duration> {
     let (tx_dur, mut rx_dur) = async_runtime::channel::<Duration>(100);
     let mut handle: Option<JoinHandle<_>> = None;
     async_runtime::spawn((async move || loop {
-        let dur = rx_dur.recv().await.unwrap();
+        let dur = if let Some(dur) = rx_dur.recv().await {
+            dur
+        } else {
+            break;
+        };
         if let Some(handle) = &handle {
             handle.abort();
         }

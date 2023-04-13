@@ -79,7 +79,7 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                         w.set_focus().unwrap_or(());
                     } else {
                         main_window_setup(app.app_handle())
-                            .map(|_w| {})
+                            .and_then(|w| w.show().map_err(|e| anyhow::anyhow!(e)))
                             .unwrap_or_else(|e| eprintln!("{e:#?}"));
                     }
                 }
