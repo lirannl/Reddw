@@ -1,9 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    app_config::{Source, AppHandleExt},
-    queue::DB,
-    wallpaper_changer::hash_url,
+    app_config::Source, app_handle_ext::AppHandleExt, queue::DB, wallpaper_changer::hash_url,
 };
 use anyhow::{anyhow, Result};
 use chrono::Utc;
@@ -167,7 +165,7 @@ pub async fn get_from_subreddit(name: impl Display, app_handle: &AppHandle) -> R
         // Remove posts which are already in the queue
         let new_posts: Vec<Post> = {
             let already_cached = query!("select id from queue")
-                .fetch_all(&mut app_handle.state::<DB>().acquire().await?)
+                .fetch_all(&mut app_handle.db().await.acquire().await?)
                 .await?;
             let already_cached = already_cached
                 .iter()
@@ -189,7 +187,7 @@ pub async fn get_from_subreddit(name: impl Display, app_handle: &AppHandle) -> R
         posts = new_posts;
     }
     let source_str = serde_json::to_string(&Source::Subreddit(name.to_string()))?;
-    let mut transaction = app_handle.state::<DB>().begin().await?;
+    let mut transaction = app_handle.db().await.begin().await?;
     let len = posts.len();
     match {
         for post in posts {

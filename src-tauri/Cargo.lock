@@ -2677,10 +2677,12 @@ name = "reddw"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.21.0",
  "chrono",
  "clap",
  "data-encoding",
  "hex",
+ "lazy_static",
  "mime_guess",
  "notify",
  "open",

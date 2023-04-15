@@ -13,9 +13,11 @@ use std::{
 };
 use tauri::{
     async_runtime::{block_on, Mutex, Sender},
-    AppHandle, Manager,
+    Manager,
 };
 use ts_rs::TS;
+
+use crate::app_handle_ext::AppHandleExt;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
@@ -33,6 +35,7 @@ impl Default for Source {
 pub struct AppConfig {
     /// Allow fetching wallpapers from Not Safe For Work sources (aka - sexually explicit content/gore)
     pub allow_nsfw: bool,
+    pub display_background: bool,
     pub sources: Vec<Source>,
     #[ts(type = "{secs: number, nanos: number}")]
     /// How often to switch new wallpapers (in seconds)
@@ -54,22 +57,8 @@ impl Default for AppConfig {
             cache_size: 100.0,
             history_amount: 10,
             theme: "default".to_string(),
+            display_background: true,
         }
-    }
-}
-
-pub trait AppHandleExt {
-    fn get_config_path(&self) -> PathBuf;
-    async fn get_config(&self) -> AppConfig;
-}
-
-impl AppHandleExt for AppHandle {
-    fn get_config_path(&self) -> PathBuf {
-        let config_dir = self.path_resolver().app_config_dir().unwrap();
-        Path::join(&config_dir, "config.json")
-    }
-    async fn get_config(&self) -> AppConfig {
-        self.state::<Mutex<AppConfig>>().lock().await.clone()
     }
 }
 
@@ -95,7 +84,8 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
             println!("Failed to parse config: {:#?}", e);
             let mut def_conf = AppConfig::default();
             def_conf.cache_dir = app.path_resolver().app_cache_dir().unwrap();
-            let def_conf_str = serde_json::to_string_pretty(&def_conf).expect("Failed to serialize default config");
+            let def_conf_str = serde_json::to_string_pretty(&def_conf)
+                .expect("Failed to serialize default config");
             fs::write(&config_path, def_conf_str).expect("Failed to write default config");
             def_conf
         });

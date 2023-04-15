@@ -9,6 +9,7 @@
 )]
 
 mod app_config;
+mod app_handle_ext;
 mod automation_socket;
 mod queue;
 mod sources;
@@ -17,7 +18,7 @@ mod wallpaper_changer;
 use crate::{
     app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},
-    wallpaper_changer::{set_wallpaper, update_wallpaper},
+    wallpaper_changer::{get_wallpaper, set_wallpaper, update_wallpaper},
 };
 use anyhow::{anyhow, Result};
 use automation_socket::Args;
@@ -96,6 +97,7 @@ fn main() {
             get_queue,
             select_folder,
             set_wallpaper,
+            get_wallpaper,
             exit,
         ])
         .system_tray(tray::setup())

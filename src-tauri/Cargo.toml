@@ -37,6 +37,8 @@ rfd = "0.10"
 clap = { version = "4.2.1", features = ["derive"] }
 whoami = "1.4.0"
 hex = "0.4.3"
+lazy_static = "1.4.0"
+base64 = "0.21.0"
 
 [features]
 # by default Tauri runs in production mode

@@ -57,7 +57,7 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                 "open_info" => {
                     let app_clone = app.app_handle();
                     async_runtime::spawn(async move {
-                        let mut dbconn = app_clone.state::<DB>().acquire().await?;
+                        let mut dbconn = app_clone.db().await.acquire().await?;
                         let info_url = query_as!(
                             Wallpaper,
                             "---sql

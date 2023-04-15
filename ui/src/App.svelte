@@ -9,21 +9,54 @@
   import Config from "./Config.svelte";
   import type { AppConfig } from "$rs/AppConfig";
   import type { Wallpaper } from "$rs/Wallpaper";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { onDestroy } from "svelte";
 
-  let config: AppConfig;
   export let initConfig: AppConfig;
+  let main: HTMLElement;
   configuration.set(initConfig);
-  configuration.subscribe((c) => (config = c));
-  export let initQueue: Wallpaper[];
-  wp_list.subscribe(async (l) => {
-    const current = l.find((w) => w.was_set);
-    if (current)
-      console.log(await invoke("get_wallpaper_path", { wallpaper: current }));
+  let config: AppConfig;
+  let queue: Wallpaper[];
+
+  const unlistens: (() => unknown)[] = [];
+
+  listen<AppConfig>("config_changed", ({ payload }) => {
+    configuration.set(payload);
+  }).then(unlistens.push);
+
+  listen<Wallpaper>("wallpaper_updated", async ({ payload }) => {
+    if (!config.display_background) return;
+    const data = await invoke<string>("get_wallpaper", {
+      wallpaper: payload,
+    });
+    main.style["background-image"] = `url(data:image;base64,${data})`;
+  }).then(unlistens.push);
+
+  configuration.subscribe((c) => {
+    config = c;
   });
+
+  wp_list.subscribe(async (l) => {
+    queue = l;
+    const current = l.find((w) => w.was_set);
+    if (current && config.display_background) {
+      const data = await invoke<string>("get_wallpaper", {
+        wallpaper: current,
+      });
+      main.style["background-image"] = `url(data:image;base64,${data})`;
+    }
+  });
+
+  export let initQueue: Wallpaper[];
   wp_list.set(initQueue);
+
+  onDestroy(() => {
+    unlistens.forEach((unlisten) => unlisten());
+  });
 </script>
 
-<main class="w-screen h-screen">
+<main class="w-screen h-screen" bind:this={main}>
+  <br />
   <Config />
   <button-group class="btn-group">
     <button class="btn" on:click={() => invoke("cache_queue")}

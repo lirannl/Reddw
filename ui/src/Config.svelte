@@ -11,25 +11,25 @@
     configuration.subscribe((cfg) => {
         config = cfg;
     });
-    $: configuration.set(config);
+    // $: configuration.set(config);
     const getSrcTypes = (cfg: AppConfig) =>
         cfg.sources.map((src) => Object.keys(src)[0] as keyof Source);
 
     let srcTypes: (keyof Source)[] = getSrcTypes(config);
-    listen<AppConfig>("config_changed", ({ payload }) => {
-        srcTypes = getSrcTypes(payload);
-        configuration.set(payload);
-    });
+    
 
-    const onFormChange = (
-        _e: Event & { currentTarget: EventTarget & HTMLFormElement }
-    ) => {
+    const onFormChange = () => {
         invoke("set_config", { appConfig: config });
     };
 
     const removeSource = (i: number) => {
-        config.sources.splice(i, 1);
-        srcTypes.splice(i, 1);
+        const sourcesCopy = config.sources;
+        sourcesCopy.splice(i, 1);
+        config.sources = sourcesCopy;
+        const srcTypesCopy = srcTypes;
+        srcTypesCopy.splice(i, 1);
+        srcTypes = srcTypesCopy;
+        onFormChange();
     };
 </script>
 
@@ -91,6 +91,17 @@
                 />
             </form-control>
             <form-control class="form-control">
+                <label for="display_background" class="label cursor-pointer">
+                    <span class="label-text">Display background in app</span>
+                </label>
+                <input
+                    id="display_background"
+                    type="checkbox"
+                    bind:checked={config.display_background}
+                    class="checkbox"
+                />
+            </form-control>
+            <form-control class="form-control">
                 <label for="theme" class="label">
                     <span class="label-text">Theme</span>
                 </label>
@@ -136,6 +147,8 @@
                         on:click={async (e) => {
                             e.preventDefault();
                             config.cache_dir = await invoke("select_folder");
+                            // Manually trigger form change (since an update is done synthetically)
+                            onFormChange();
                         }}
                         ><svg
                             xmlns="http://www.w3.org/2000/svg"

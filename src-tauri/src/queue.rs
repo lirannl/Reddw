@@ -1,4 +1,4 @@
-use crate::app_config::AppHandleExt;
+use crate::app_handle_ext::AppHandleExt;
 use crate::wallpaper_changer::download_wallpaper;
 use crate::{
     app_config::Source, sources::reddit::get_from_subreddit, wallpaper_changer::Wallpaper,
@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use sqlx::migrate::MigrateDatabase;
 use sqlx::{migrate, query, query_as, Pool, Sqlite};
 use std::fs::{self, read_dir};
-use tauri::async_runtime::spawn;
+use tauri::async_runtime::{spawn, Mutex};
 use tauri::Manager;
 
 pub type DB = Pool<Sqlite>;
@@ -23,14 +23,14 @@ pub async fn manage_queue(app: tauri::AppHandle) -> Result<()> {
         Sqlite::create_database(db_url).await?;
     }
     let db: DB = { sqlx::SqlitePool::connect(db_url).await? };
-    app.manage(db);
-    migrate!().run(app.state::<DB>().inner()).await?;
+    migrate!().run(&db).await?;
+    app.manage(Mutex::new(db));
     Ok(())
 }
 
 #[tauri::command]
 pub async fn get_queue(app: tauri::AppHandle) -> Result<Vec<Wallpaper>, String> {
-    let db = app.state::<DB>();
+    let db = app.db().await;
     let queue = query_as!(
         Wallpaper,
         "SELECT * FROM queue ORDER BY date DESC"
@@ -56,7 +56,7 @@ pub async fn trim_queue(app: &tauri::AppHandle) -> Result<()> {
         ",
         config.history_amount
     )
-    .execute(&mut app.state::<DB>().acquire().await?)
+    .execute(&mut app.db().await.acquire().await?)
     .await?;
     Ok(())
 }
