@@ -8,11 +8,11 @@ use sqlx::migrate::MigrateDatabase;
 use sqlx::{migrate, query, query_as, Pool, Sqlite};
 use std::fs::{self, read_dir};
 use tauri::async_runtime::{spawn, Mutex};
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
 
 pub type DB = Pool<Sqlite>;
 
-pub async fn manage_queue(app: tauri::AppHandle) -> Result<()> {
+pub async fn manage_queue(app: &AppHandle) -> Result<()> {
     let cache_dir = app.get_config().await.cache_dir;
     if !cache_dir.exists() {
         fs::create_dir_all(&cache_dir)?;
@@ -31,13 +31,10 @@ pub async fn manage_queue(app: tauri::AppHandle) -> Result<()> {
 #[tauri::command]
 pub async fn get_queue(app: tauri::AppHandle) -> Result<Vec<Wallpaper>, String> {
     let db = app.db().await;
-    let queue = query_as!(
-        Wallpaper,
-        "SELECT * FROM queue ORDER BY date DESC"
-    )
-    .fetch_all(&mut db.acquire().await.map_err(|e| e.to_string())?)
-    .await
-    .map_err(|e| e.to_string())?;
+    let queue = query_as!(Wallpaper, "SELECT * FROM queue ORDER BY date DESC")
+        .fetch_all(&mut db.acquire().await.map_err(|e| e.to_string())?)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(queue)
 }
 
@@ -80,9 +77,7 @@ pub async fn cache_queue(app: tauri::AppHandle) -> Result<usize, String> {
 }
 
 pub async fn download_queue(app: tauri::AppHandle) -> Result<()> {
-    let queue = get_queue(app.app_handle())
-        .await
-        .map_err(|e| anyhow!(e))?;
+    let queue = get_queue(app.app_handle()).await.map_err(|e| anyhow!(e))?;
     for wallpaper in queue {
         let app_clone = app.app_handle();
 

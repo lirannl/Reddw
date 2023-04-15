@@ -78,7 +78,7 @@ fn main() {
                 // Setup config watcher
                 app_config::build(app.handle(), tx_interval)?;
                 // Setup history
-                block_on(manage_queue(app.handle()))?;
+                block_on(manage_queue(&app.handle()))?;
                 Result::<(), anyhow::Error>::Ok(())
             } {
                 Ok(()) => (),

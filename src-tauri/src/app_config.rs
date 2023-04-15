@@ -17,7 +17,7 @@ use tauri::{
 };
 use ts_rs::TS;
 
-use crate::app_handle_ext::AppHandleExt;
+use crate::{app_handle_ext::AppHandleExt, queue::manage_queue};
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
@@ -106,8 +106,9 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
                                 .try_send(config.interval)
                                 .or_else(|e| Err(anyhow!("{:#?}", e)))?;
                         }
-                        app.emit_all("config_changed", Some(config.clone()))?;
-                        *block_on(app.state::<Mutex<AppConfig>>().lock()) = config;
+                        *block_on(app.state::<Mutex<AppConfig>>().lock()) = config.clone();
+                        if old_config.cache_dir != config.cache_dir {block_on(manage_queue(&app))?;}
+                        app.emit_all("config_changed", Some(config))?;
                         Ok(())
                     })().unwrap_or_else(|err| {
                         eprintln!("{:#?}", err);

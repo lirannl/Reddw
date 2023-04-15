@@ -1,8 +1,6 @@
 use std::fmt::Display;
 
-use crate::{
-    app_config::Source, app_handle_ext::AppHandleExt, queue::DB, wallpaper_changer::hash_url,
-};
+use crate::{app_config::Source, app_handle_ext::AppHandleExt, wallpaper_changer::hash_url};
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use mime_guess::mime;
@@ -10,7 +8,7 @@ use reqwest::{Client, Method, Request, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::{query, Executor};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Post {

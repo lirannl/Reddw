@@ -1,6 +1,6 @@
 use crate::app_config::Source;
 use crate::app_handle_ext::AppHandleExt;
-use crate::queue::{trim_queue, DB};
+use crate::queue::trim_queue;
 use crate::sources::reddit::get_from_subreddit;
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine};

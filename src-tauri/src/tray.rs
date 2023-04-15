@@ -1,6 +1,6 @@
 use crate::{
+    app_handle_ext::AppHandleExt,
     main_window_setup,
-    queue::DB,
     wallpaper_changer::{update_wallpaper, Wallpaper},
 };
 use sqlx::query_as;
