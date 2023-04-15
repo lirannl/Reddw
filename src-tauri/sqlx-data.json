@@ -1,0 +1,277 @@
+{
+  "db": "SQLite",
+  "3e6ea7da46c2f31348d28634aafe935da1681bf7bc930a400e96d4ada1f13f1f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "data_url",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "info_url",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "date",
+          "ordinal": 4,
+          "type_info": "Datetime"
+        },
+        {
+          "name": "source",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "was_set",
+          "ordinal": 6,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "SELECT * FROM queue WHERE id = $1"
+  },
+  "45710df64a2c76358333f681944e8610155bbcc293fddaf346bce78b266a193b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "data_url",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "info_url",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "date",
+          "ordinal": 4,
+          "type_info": "Datetime"
+        },
+        {
+          "name": "source",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "was_set",
+          "ordinal": 6,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "SELECT * FROM queue ORDER BY date DESC"
+  },
+  "71c625028c654a5c498ae2e237136146c7168b92d31ce9a9ebfb685a1d0e0a46": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "---sql\n        update queue set was_set = 1, date = $1 where id = $2"
+  },
+  "7bf7f309c1ad2a08a01abf8653ecebcdf5c851e426c05b20d526d322993a7bcc": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "---sql\n        delete from queue \n        where id in \n        (select id from queue \n            where was_set = 1 \n            order by date\n            limit -1 offset ?)\n        ;\n        "
+  },
+  "a9d313a00602574deec2756749247a0fdf5b94fcde0e36869b762a6f7755544a": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 6
+      }
+    },
+    "query": "INSERT INTO queue (id, name, data_url, info_url, date, source) VALUES ($1, $2, $3, $4, $5, $6)"
+  },
+  "c04b0690f3f2fab23a95034f4330098bdf3b333474156c536da579e28eb31764": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "select id from queue"
+  },
+  "c0508851497539778afc189ed471d249b689fdcde8e902d5314ec3f223827f35": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "data_url",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "info_url",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "date",
+          "ordinal": 4,
+          "type_info": "Datetime"
+        },
+        {
+          "name": "source",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "was_set",
+          "ordinal": 6,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "---sql\n                            select * from queue \n                            where was_set = 1\n                            order by date desc"
+  },
+  "cb047baa1a8a0415fa5a492421eee372fd6683769871f26a69b237307a75c5b8": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "---sql\n            update queue set was_set = 1, date = $1 where id = $2"
+  },
+  "ecc6bf37bb8423a0be0495b81c1900a6c4a69391346f0e38539eb77196eb830b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "data_url",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "info_url",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "date",
+          "ordinal": 4,
+          "type_info": "Datetime"
+        },
+        {
+          "name": "source",
+          "ordinal": 5,
+          "type_info": "Text"
+        },
+        {
+          "name": "was_set",
+          "ordinal": 6,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "---sql\n            select * from queue \n            where source = $1 and was_set = 0\n            order by date desc"
+  }
+}

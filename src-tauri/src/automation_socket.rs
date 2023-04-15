@@ -1,7 +1,7 @@
 use crate::{app_config::Source, main_window_setup, wallpaper_changer::update_wallpaper};
 use anyhow::{anyhow, Result};
 #[cfg(target_family = "unix")]
-use fs::remove_file;
+use std::fs::remove_file;
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 use std::{io::ErrorKind, process::exit};
