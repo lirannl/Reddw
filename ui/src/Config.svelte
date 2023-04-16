@@ -33,9 +33,8 @@
 
 <form
     on:change={onFormChange}
-    class={`card card-compact m-auto bg-base-100 bg-opacity-${
-        lightness && lightness > 100 ? 50 : 25
-    } backdrop-blur-lg shadow-xl`}
+    class={`card card-compact m-auto bg-base-100 backdrop-blur-lg shadow-xl`}
+    style={`background-opacity: ${lightness && lightness > 100 ? 50 : 25};`}
 >
     <card-body class="card-body">
         <h2 class="card-title">Configuration</h2>
