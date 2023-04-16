@@ -2,21 +2,13 @@
     import type { AppConfig } from "$rs/AppConfig";
     import type { Source } from "$rs/Source";
     import { invoke } from "@tauri-apps/api";
-    import { listen } from "@tauri-apps/api/event";
     import { sourceTypes } from "./types/source";
-    import { getContext, setContext } from "svelte";
-    import { configuration } from "./App.svelte";
-    import { get } from "svelte/store";
-    let config = get(configuration);
-    configuration.subscribe((cfg) => {
-        config = cfg;
-    });
-    // $: configuration.set(config);
+
+    export let config: AppConfig;
     const getSrcTypes = (cfg: AppConfig) =>
         cfg.sources.map((src) => Object.keys(src)[0] as keyof Source);
 
     let srcTypes: (keyof Source)[] = getSrcTypes(config);
-    
 
     const onFormChange = () => {
         invoke("set_config", { appConfig: config });
@@ -35,8 +27,7 @@
 
 <form
     on:change={onFormChange}
-    class="card card-compact m-auto bg-base-100 shadow-xl"
-    style="width:94%"
+    class="card card-compact m-auto bg-base-100 bg-opacity-25 backdrop-blur-lg shadow-xl"
 >
     <card-body class="card-body">
         <h2 class="card-title">Configuration</h2>
@@ -87,7 +78,7 @@
                     id="allow_nsfw"
                     type="checkbox"
                     bind:checked={config.allow_nsfw}
-                    class="checkbox"
+                    class="checkbox border-base-content border-opacity-75"
                 />
             </form-control>
             <form-control class="form-control">
@@ -98,7 +89,7 @@
                     id="display_background"
                     type="checkbox"
                     bind:checked={config.display_background}
-                    class="checkbox"
+                    class="checkbox border-base-content border-opacity-75"
                 />
             </form-control>
             <form-control class="form-control">
@@ -114,22 +105,25 @@
             </form-control>
             <form-control class="form-control">
                 <label for="updateInterval" class="label">
-                    <span class="label-text">Interval (secs)</span>
+                    <span class="label-text">Interval</span>
                 </label>
-                <input
-                    id="updateInterval"
-                    type="text"
-                    value={config.interval.secs +
-                        config.interval.nanos / 1000000000}
-                    on:change={(e) => {
-                        const val = parseFloat(e.currentTarget.value);
-                        config.interval.secs = Math.floor(val);
-                        config.interval.nanos = Math.floor(
-                            (val - config.interval.secs) * 1000000000
-                        );
-                    }}
-                    class="input input-bordered w-full max-w-xs"
-                />
+                <div class="input-group">
+                    <input
+                        id="updateInterval"
+                        type="text"
+                        value={config.interval.secs +
+                            config.interval.nanos / 1000000000}
+                        on:change={(e) => {
+                            const val = parseFloat(e.currentTarget.value);
+                            config.interval.secs = Math.floor(val);
+                            config.interval.nanos = Math.floor(
+                                (val - config.interval.secs) * 1000000000
+                            );
+                        }}
+                        class="input input-bordered w-full max-w-xs"
+                    />
+                    <span>Seconds</span>
+                </div>
             </form-control>
             <form-control class="form-control">
                 <label for="folder" class="label">
@@ -178,12 +172,15 @@
                 <label for="cache_size" class="label">
                     <span class="label-text">Max cache size</span>
                 </label>
-                <input
-                    id="cache_size"
-                    type="text"
-                    bind:value={config.cache_size}
-                    class="input input-bordered w-full max-w-xs"
-                />
+                <div class="input-group">
+                    <input
+                        id="cache_size"
+                        type="text"
+                        bind:value={config.cache_size}
+                        class="input input-bordered w-full max-w-xs"
+                    />
+                    <span>MB</span>
+                </div>
             </form-control>
         </div>
     </card-body>

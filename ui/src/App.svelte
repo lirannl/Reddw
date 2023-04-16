@@ -9,42 +9,50 @@
   import Config from "./Config.svelte";
   import type { AppConfig } from "$rs/AppConfig";
   import type { Wallpaper } from "$rs/Wallpaper";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-  import { onDestroy } from "svelte";
+
+  import { onDestroy, onMount } from "svelte";
+  import { reactToAppConfig, updateAppWallpaper } from "./misc";
+  import { listen } from "@tauri-apps/api/event";
 
   export let initConfig: AppConfig;
   let main: HTMLElement;
   configuration.set(initConfig);
-  let config: AppConfig;
-  let queue: Wallpaper[];
+  let config: AppConfig | undefined;
+  let queue: Wallpaper[] | undefined;
 
   const unlistens: (() => unknown)[] = [];
 
-  listen<AppConfig>("config_changed", ({ payload }) => {
-    configuration.set(payload);
-  }).then(unlistens.push);
+  onMount(() => {
+    if (queue && config?.display_background) updateAppWallpaper(queue, main);
+  });
+
+  listen<[AppConfig, AppConfig]>(
+    "config_changed",
+    ({ payload: [oldConfig, newConfig] }) => {
+      if (config && queue) reactToAppConfig(oldConfig, newConfig, queue, main);
+      configuration.set(newConfig);
+      config = newConfig;
+    }
+  ).then((unlisten) => {
+    unlistens.push(unlisten);
+  });
+  configuration.subscribe((c) => {
+    // if (config && queue) reactToAppConfig(config, c, queue, main);
+    config = c;
+  });
 
   listen<Wallpaper>("wallpaper_updated", async ({ payload }) => {
-    if (!config.display_background) return;
+    if (!config?.display_background) return;
     const data = await invoke<string>("get_wallpaper", {
       wallpaper: payload,
     });
-    main.style["background-image"] = `url(data:image;base64,${data})`;
-  }).then(unlistens.push);
-
-  configuration.subscribe((c) => {
-    config = c;
+    main.style.backgroundImage = `url(data:image;base64,${data})`;
+  }).then((unlisten) => {
+    unlistens.push(unlisten);
   });
 
   wp_list.subscribe(async (l) => {
     queue = l;
-    const current = l.find((w) => w.was_set);
-    if (current && config.display_background) {
-      const data = await invoke<string>("get_wallpaper", {
-        wallpaper: current,
-      });
-      main.style["background-image"] = `url(data:image;base64,${data})`;
-    }
   });
 
   export let initQueue: Wallpaper[];
@@ -55,17 +63,23 @@
   });
 </script>
 
-<main class="w-screen h-screen" bind:this={main}>
-  <br />
-  <Config />
-  <button-group class="btn-group">
-    <button class="btn" on:click={() => invoke("cache_queue")}
-      >Cache upcoming</button
-    >
-    <button class="btn" on:click={() => invoke("update_wallpaper")}
-      >Update wallpaper</button
-    >
-    <button class="btn btn-warning" on:click={() => invoke("exit")}>Quit</button
-    >
-  </button-group>
+<main class="w-screen h-screen p-2 space-y-2" bind:this={main}>
+  {#if config}
+    <Config {config} />
+  {/if}
+  <div class="backdrop-blur w-fit">
+    <button-group class="btn-group">
+      <button class="btn bg-opacity-60" on:click={() => invoke("cache_queue")}
+        >Cache upcoming</button
+      >
+      <button
+        class="btn bg-opacity-60"
+        on:click={() => invoke("update_wallpaper")}>Update wallpaper</button
+      >
+      <button
+        class="btn btn-warning bg-opacity-60"
+        on:click={() => invoke("exit")}>Quit</button
+      >
+    </button-group>
+  </div>
 </main>

@@ -96,23 +96,26 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
     }
     spawn(move || {
         let mut watcher = recommended_watcher(move |res: notify::Result<notify::Event>| {
-            if let Ok(event) = res && EventKind::Modify(ModifyKind::Any) == event.kind {
-                    (|| -> Result<()> {
-                        let config = serde_json::from_str::<AppConfig>(&read_to_string(
-                            &config_path_clone)?)?;
-                        let old_config = block_on(app.state::<Mutex<AppConfig>>().lock()).clone();
-                        if old_config.interval != config.interval {
-                            tx_interval
-                                .try_send(config.interval)
-                                .or_else(|e| Err(anyhow!("{:#?}", e)))?;
-                        }
-                        *block_on(app.state::<Mutex<AppConfig>>().lock()) = config.clone();
-                        if old_config.cache_dir != config.cache_dir {block_on(manage_queue(&app))?;}
-                        app.emit_all("config_changed", Some(config))?;
-                        Ok(())
-                    })().unwrap_or_else(|err| {
-                        eprintln!("{:#?}", err);
-                    });
+            if res.is_ok() {
+                (|| -> Result<()> {
+                    let config =
+                        serde_json::from_str::<AppConfig>(&read_to_string(&config_path_clone)?)?;
+                    let old_config = block_on(app.state::<Mutex<AppConfig>>().lock()).clone();
+                    if old_config.interval != config.interval {
+                        tx_interval
+                            .try_send(config.interval)
+                            .or_else(|e| Err(anyhow!("{:#?}", e)))?;
+                    }
+                    *block_on(app.state::<Mutex<AppConfig>>().lock()) = config.clone();
+                    if old_config.cache_dir != config.cache_dir {
+                        block_on(manage_queue(&app))?;
+                    }
+                    app.emit_all("config_changed", vec![old_config, config])?;
+                    Ok(())
+                })()
+                .unwrap_or_else(|err| {
+                    eprintln!("{:#?}", err);
+                });
             }
         })
         .unwrap();
