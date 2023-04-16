@@ -69,7 +69,7 @@
   });
 </script>
 
-<main class="w-screen h-screen p-2 space-y-2" bind:this={main}>
+<main class="w-screen h-screen overflow-auto p-2 space-y-2" bind:this={main}>
   {#if config}
     <Config {config} />
   {/if}

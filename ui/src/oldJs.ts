@@ -32,6 +32,7 @@ export const getImageLightness = (imageSrc: string) => {
             }
 
             const brightness = Math.floor(colorSum / (this.width * this.height));
+            document.body.removeChild(img);
             resolve(brightness);
         }
     });
