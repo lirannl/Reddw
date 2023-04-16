@@ -1,7 +1,28 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-body > main {
+
+body>main {
     background-position: center;
     background-size: cover;
+    scrollbar-width: none;
+}
+
+/* Track */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    scrollbar-width: none;
 }

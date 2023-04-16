@@ -3,8 +3,14 @@
     import type { Source } from "$rs/Source";
     import { invoke } from "@tauri-apps/api";
     import { sourceTypes } from "./types/source";
+    import { bg_data } from "./App.svelte";
 
     export let config: AppConfig;
+    let lightness: number;
+    bg_data.subscribe((d) => {
+        if (d?.lightness) lightness = d.lightness;
+    });
+
     const getSrcTypes = (cfg: AppConfig) =>
         cfg.sources.map((src) => Object.keys(src)[0] as keyof Source);
 
@@ -27,7 +33,9 @@
 
 <form
     on:change={onFormChange}
-    class="card card-compact m-auto bg-base-100 bg-opacity-25 backdrop-blur-lg shadow-xl"
+    class={`card card-compact m-auto bg-base-100 bg-opacity-${
+        lightness > 100 ? 50 : 25
+    } backdrop-blur-lg shadow-xl`}
 >
     <card-body class="card-body">
         <h2 class="card-title">Configuration</h2>

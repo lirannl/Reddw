@@ -2,6 +2,9 @@
   import { writable } from "svelte/store";
   export const configuration = writable({} as AppConfig);
   export const wp_list = writable([] as Wallpaper[]);
+  export const bg_data = writable<
+    { data: string; lightness: number } | undefined
+  >();
 </script>
 
 <script lang="ts">
@@ -13,6 +16,7 @@
   import { onDestroy, onMount } from "svelte";
   import { reactToAppConfig, updateAppWallpaper } from "./misc";
   import { listen } from "@tauri-apps/api/event";
+  import { getImageLightness } from "./oldJs";
 
   export let initConfig: AppConfig;
   let main: HTMLElement;
@@ -22,8 +26,10 @@
 
   const unlistens: (() => unknown)[] = [];
 
-  onMount(() => {
-    if (queue && config?.display_background) updateAppWallpaper(queue, main);
+  onMount(async () => {
+    if (queue && config?.display_background) {
+      await updateAppWallpaper(queue, main);
+    }
   });
 
   listen<[AppConfig, AppConfig]>(
@@ -37,7 +43,6 @@
     unlistens.push(unlisten);
   });
   configuration.subscribe((c) => {
-    // if (config && queue) reactToAppConfig(config, c, queue, main);
     config = c;
   });
 
@@ -47,6 +52,7 @@
       wallpaper: payload,
     });
     main.style.backgroundImage = `url(data:image;base64,${data})`;
+    bg_data.set({ data, lightness: await getImageLightness(`data:image;base64,${data}`)}); 
   }).then((unlisten) => {
     unlistens.push(unlisten);
   });
