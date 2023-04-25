@@ -1,8 +1,5 @@
 use anyhow::{anyhow, Result};
-use notify::{
-    event::{EventKind, ModifyKind},
-    recommended_watcher, RecursiveMode, Watcher,
-};
+use notify::{recommended_watcher, RecursiveMode, Watcher};
 use rfd;
 use serde::{Deserialize, Serialize};
 use std::{

@@ -265,6 +265,7 @@ pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Resul
             .tray_handle()
             .get_item("open_info")
             .set_title(wallpaper.name.as_str())?;
+        app_handle.emit_all("wallpaper_updated", wallpaper.clone())?;
         eprintln!("New wallpaper: {:#?}", wallpaper);
         Ok(())
     })()

@@ -6,9 +6,9 @@
     import { bg_data } from "./App.svelte";
 
     export let config: AppConfig;
-    let lightness: number | undefined;
+    let bg_opacity: number | undefined;
     bg_data.subscribe((d) => {
-        lightness = d?.lightness;
+        bg_opacity = d?.bg_opacity;
     });
 
     const getSrcTypes = (cfg: AppConfig) =>
@@ -33,10 +33,8 @@
 
 <form
     on:change={onFormChange}
-    class={`card card-compact m-auto bg-base-100 backdrop-blur-lg shadow-xl`}
-    style={`--tw-bg-opacity: ${
-        lightness && (lightness > 10 ? lightness - 10 : 10) / 255
-    };`}
+    class={`card card-compact m-auto bg-base-300 backdrop-blur-lg shadow-xl`}
+    style={`--tw-bg-opacity: ${bg_opacity};`}
 >
     <card-body class="card-body">
         <h2 class="card-title">Configuration</h2>

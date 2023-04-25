@@ -3,7 +3,7 @@
   export const configuration = writable({} as AppConfig);
   export const wp_list = writable([] as Wallpaper[]);
   export const bg_data = writable<
-    { data: string; lightness: number } | undefined
+    { data: string; lightness: number; bg_opacity: number } | undefined
   >();
 </script>
 
@@ -17,6 +17,7 @@
   import { reactToAppConfig, updateAppWallpaper } from "./misc";
   import { listen } from "@tauri-apps/api/event";
   import { getImageLightness } from "./oldJs";
+  import Queue from "./Queue.svelte";
 
   export let initConfig: AppConfig;
   let main: HTMLElement;
@@ -51,8 +52,15 @@
     const data = await invoke<string>("get_wallpaper", {
       wallpaper: payload,
     });
-    main.style.backgroundImage = `url(data:image;base64,${data})`;
-    bg_data.set({ data, lightness: await getImageLightness(`data:image;base64,${data}`)}); 
+    const dataStr = `data:image;base64,${data}`;
+    main.style.backgroundImage = `url(${dataStr})`;
+    const lightness = await getImageLightness(dataStr);
+    bg_data.set({
+      data,
+      lightness,
+      bg_opacity: lightness && (lightness > 10 ? lightness - 10 : 10) / 255,
+    });
+    wp_list.set(await invoke<Wallpaper[]>("get_queue"));
   }).then((unlisten) => {
     unlistens.push(unlisten);
   });
@@ -69,7 +77,7 @@
   });
 </script>
 
-<main class="w-screen h-screen overflow-auto p-2 space-y-2" bind:this={main}>
+<main class="w-screen h-screen overflow-y-auto p-2 space-y-2" bind:this={main}>
   {#if config}
     <Config {config} />
   {/if}
@@ -88,4 +96,5 @@
       >
     </button-group>
   </div>
+  <Queue />
 </main>
