@@ -1,5 +1,4 @@
 <script lang="ts">
-  import VirtualList from "svelte-tiny-virtual-list";
   import type { Wallpaper } from "$rs/Wallpaper";
   import { bg_data, wp_list } from "./App.svelte";
   import { invoke } from "@tauri-apps/api";
@@ -18,8 +17,7 @@
 <carousel class="carousel carousel-center rounded-box">
   {#each queue as wallpaper, index}
     <div
-      class="carousel-item card"
-      style={`--tw-bg-opacity: ${bg_opacity};`}
+      class="carousel-item"
       bind:this={itemCards[index]}
       on:mouseenter={() => {
         new Promise((resolve) => setTimeout(resolve, 500)).then(async () => {
@@ -38,9 +36,12 @@
       }}
     >
       {#if data && openIndex === index}
-        <div class="overflow-y-auto max-h-32">
+        <div
+          class=" overflow-y-auto max-h-32 flex"
+          style={`--tw-bg-opacity: ${bg_opacity};`}
+        >
           <img
-            class="collapse-content object-cover"
+            class="h-64 w-full object-cover"
             src={data}
             alt={wallpaper.name}
           />

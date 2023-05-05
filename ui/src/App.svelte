@@ -5,6 +5,23 @@
   export const bg_data = writable<
     { data: string; lightness: number; bg_opacity: number } | undefined
   >();
+
+  export const inject_wallpaper_into_app = async (
+    config: AppConfig,
+    wallpaper: Wallpaper,
+    main: HTMLElement
+  ) => {
+    if (!config?.display_background) return;
+    const data = await invoke<string>("get_wallpaper", { wallpaper });
+    const dataStr = `data:image;base64,${data}`;
+    main.style.backgroundImage = `url(${dataStr})`;
+    const lightness = await getImageLightness(dataStr);
+    bg_data.set({
+      data,
+      lightness,
+      bg_opacity: lightness && (lightness > 10 ? lightness - 10 : 10) / 255,
+    });
+  };
 </script>
 
 <script lang="ts">
@@ -14,7 +31,7 @@
   import type { Wallpaper } from "$rs/Wallpaper";
 
   import { onDestroy, onMount } from "svelte";
-  import { reactToAppConfig, updateAppWallpaper } from "./misc";
+  import { reactToAppConfig } from "./misc";
   import { listen } from "@tauri-apps/api/event";
   import { getImageLightness } from "./oldJs";
   import Queue from "./Queue.svelte";
@@ -29,7 +46,8 @@
 
   onMount(async () => {
     if (queue && config?.display_background) {
-      await updateAppWallpaper(queue, main);
+      const current = queue.find((w) => w.was_set);
+      if (current) await inject_wallpaper_into_app(config, current, main);
     }
   });
 
@@ -48,18 +66,7 @@
   });
 
   listen<Wallpaper>("wallpaper_updated", async ({ payload }) => {
-    if (!config?.display_background) return;
-    const data = await invoke<string>("get_wallpaper", {
-      wallpaper: payload,
-    });
-    const dataStr = `data:image;base64,${data}`;
-    main.style.backgroundImage = `url(${dataStr})`;
-    const lightness = await getImageLightness(dataStr);
-    bg_data.set({
-      data,
-      lightness,
-      bg_opacity: lightness && (lightness > 10 ? lightness - 10 : 10) / 255,
-    });
+    if (config) inject_wallpaper_into_app(config, payload, main);
     wp_list.set(await invoke<Wallpaper[]>("get_queue"));
   }).then((unlisten) => {
     unlistens.push(unlisten);
