@@ -1,4 +1,4 @@
-Reddw - a light-yet-robust wallpaper manager
+Reddw - a light and robust wallpaper manager
 
 Compile instructions:
 Install rustup/rust
