@@ -2750,9 +2750,17 @@ dependencies = [
 name = "reddw-source-plugin"
 version = "0.2.0"
 dependencies = [
+ "chrono",
  "serde",
  "sqlx",
  "ts-rs",
+]
+
+[[package]]
+name = "reddw-wallhaven"
+version = "0.2.0"
+dependencies = [
+ "reddw-source-plugin",
 ]
 
 [[package]]

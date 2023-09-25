@@ -4,15 +4,13 @@ use crate::queue::trim_queue;
 use crate::sources::reddit::get_from_subreddit;
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine};
-use chrono::NaiveDateTime;
 use data_encoding::BASE32;
 use mime_guess::mime::IMAGE;
 use mime_guess::Mime;
 use rand::seq::SliceRandom;
 use reddw_source_plugin::Wallpaper;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sqlx::{query, query_as, FromRow};
+use sqlx::{query, query_as};
 use std::fmt::Display;
 use std::fs::{self, read_dir as read_dir_sync};
 use std::path::PathBuf;
@@ -23,7 +21,6 @@ use tauri::{
     AppHandle, Manager,
 };
 use tokio::{fs::read, time::interval};
-use ts_rs::TS;
 
 pub fn hash_url(this: &(impl Display + ?Sized)) -> String {
     let hash = Sha256::digest(this.to_string().as_bytes());
