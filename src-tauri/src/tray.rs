@@ -1,8 +1,9 @@
 use crate::{
     app_handle_ext::AppHandleExt,
     main_window_setup,
-    wallpaper_changer::{update_wallpaper, Wallpaper},
+    wallpaper_changer::{update_wallpaper},
 };
+use reddw_source_plugin::Wallpaper;
 use sqlx::query_as;
 use tauri::{
     async_runtime, AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,

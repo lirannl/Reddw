@@ -9,6 +9,7 @@ use data_encoding::BASE32;
 use mime_guess::mime::IMAGE;
 use mime_guess::Mime;
 use rand::seq::SliceRandom;
+use reddw_source_plugin::Wallpaper;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{query, query_as, FromRow};
@@ -27,19 +28,6 @@ use ts_rs::TS;
 pub fn hash_url(this: &(impl Display + ?Sized)) -> String {
     let hash = Sha256::digest(this.to_string().as_bytes());
     BASE32.encode(&hash)[..7].to_string()
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, TS, FromRow)]
-#[ts(export)]
-pub struct Wallpaper {
-    pub id: String,
-    pub name: String,
-    pub data_url: String,
-    pub info_url: Option<String>,
-    #[ts(type = "string")]
-    pub date: NaiveDateTime,
-    pub source: String,
-    pub was_set: bool,
 }
 
 async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {

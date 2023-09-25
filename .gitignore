@@ -1,6 +1,8 @@
 node_modules
 dist
 /src-tauri/bindings
-
+/cache
+/config
+/target
 .vscode
 TODO

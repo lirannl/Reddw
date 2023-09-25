@@ -2716,7 +2716,7 @@ checksum = "f2ff9a1f06a88b01621b7ae906ef0211290d1c8a168a15542486a8f61c0833b9"
 
 [[package]]
 name = "reddw"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64 0.21.4",
@@ -2729,6 +2729,7 @@ dependencies = [
  "notify",
  "open",
  "rand 0.8.5",
+ "reddw-source-plugin",
  "reqwest",
  "rfd",
  "rmp-serde",
@@ -2743,6 +2744,15 @@ dependencies = [
  "wallpaper",
  "whoami",
  "window-vibrancy",
+]
+
+[[package]]
+name = "reddw-source-plugin"
+version = "0.2.0"
+dependencies = [
+ "serde",
+ "sqlx",
+ "ts-rs",
 ]
 
 [[package]]
