@@ -45,7 +45,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
             order by date desc",
             source_str
         )
-        .fetch_optional(&mut app_handle_clone.db().await.acquire().await?)
+        .fetch_optional(&app_handle_clone.db().await)
         .await?
         .ok_or(anyhow!("No wallpapers"))
     };
@@ -101,7 +101,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
         now,
         wallpaper.id
     )
-    .execute(&mut app_handle.db().await.acquire().await?)
+    .execute(&app_handle.db().await)
     .await?;
 
     app_handle.emit_all("wallpaper_updated", &wallpaper)?;
@@ -243,7 +243,7 @@ pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Resul
             now,
             wallpaper.id
         )
-        .execute(&mut app_handle.db().await.acquire().await?)
+        .execute(&app_handle.db().await)
         .await?;
 
         app_handle

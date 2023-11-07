@@ -18,6 +18,7 @@ use crate::{app_handle_ext::AppHandleExt, queue::manage_queue};
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
+#[ts(export_to = "../plugins/reddw-source-plugin/bindings/")]
 pub enum Source {
     Subreddit(String),
 }
@@ -29,6 +30,7 @@ impl Default for Source {
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
+#[ts(export_to = "../plugins/reddw-source-plugin/bindings/")]
 pub struct AppConfig {
     /// Allow fetching wallpapers from Not Safe For Work sources (aka - sexually explicit content/gore)
     pub allow_nsfw: bool,

@@ -33,7 +33,7 @@ pub async fn manage_queue(app: &AppHandle) -> Result<()> {
 pub async fn get_queue(app: tauri::AppHandle) -> Result<Vec<Wallpaper>, String> {
     let db = app.db().await;
     let queue = query_as!(Wallpaper, "SELECT * FROM queue ORDER BY date DESC")
-        .fetch_all(&mut db.acquire().await.map_err(|e| e.to_string())?)
+        .fetch_all(&db)
         .await
         .map_err(|e| e.to_string())?;
     Ok(queue)
@@ -54,7 +54,7 @@ pub async fn trim_queue(app: &tauri::AppHandle) -> Result<()> {
         ",
         config.history_amount
     )
-    .execute(&mut app.db().await.acquire().await?)
+    .execute(&app.db().await)
     .await?;
     Ok(())
 }

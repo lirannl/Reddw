@@ -2,7 +2,6 @@
 #![allow(incomplete_features)]
 #![feature(
     async_closure,
-    async_fn_in_trait,
     absolute_path,
     let_chains,
     if_let_guard

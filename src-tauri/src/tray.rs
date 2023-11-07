@@ -1,7 +1,7 @@
 use crate::{
     app_handle_ext::AppHandleExt,
     main_window_setup,
-    wallpaper_changer::{update_wallpaper},
+    wallpaper_changer::update_wallpaper,
 };
 use reddw_source_plugin::Wallpaper;
 use sqlx::query_as;
@@ -58,7 +58,7 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                 "open_info" => {
                     let app_clone = app.app_handle();
                     async_runtime::spawn(async move {
-                        let mut dbconn = app_clone.db().await.acquire().await?;
+                        let dbconn = app_clone.db().await;
                         let info_url = query_as!(
                             Wallpaper,
                             "---sql
@@ -66,7 +66,7 @@ pub fn event_handler(app: &AppHandle, event: SystemTrayEvent) {
                             where was_set = 1
                             order by date desc",
                         )
-                        .fetch_optional(&mut dbconn)
+                        .fetch_optional(&dbconn)
                         .await?
                         .and_then(|a| a.info_url);
                         if let Some(info_url) = info_url {

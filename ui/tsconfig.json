@@ -9,7 +9,7 @@
     "strict": true,
     "paths": {
       "$rs/*": [
-        "../src-tauri/bindings/*"
+        "../plugins/reddw-source-plugin/bindings/*"
       ]
     }
   },

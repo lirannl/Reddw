@@ -1,6 +1,5 @@
 #![feature(
-    async_closure,
-    async_fn_in_trait)]
+    async_closure)]
 
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow, types::chrono::NaiveDateTime};

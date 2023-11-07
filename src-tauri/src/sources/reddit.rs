@@ -163,7 +163,7 @@ pub async fn get_from_subreddit(name: impl Display, app_handle: &AppHandle) -> R
         // Remove posts which are already in the queue
         let new_posts: Vec<Post> = {
             let already_cached = query!("select id from queue")
-                .fetch_all(&mut app_handle.db().await.acquire().await?)
+                .fetch_all(&app_handle.db().await)
                 .await?;
             let already_cached = already_cached
                 .iter()
@@ -190,8 +190,7 @@ pub async fn get_from_subreddit(name: impl Display, app_handle: &AppHandle) -> R
     match {
         for post in posts {
             let id = hash_url(post.url.as_str());
-            if query!("SELECT * FROM queue WHERE id = $1", id)
-                .fetch_optional(&mut transaction)
+            if transaction.fetch_optional(query!("SELECT * FROM queue WHERE id = $1", id))
                 .await?
                 .is_some()
             {
@@ -222,4 +221,5 @@ pub async fn get_from_subreddit(name: impl Display, app_handle: &AppHandle) -> R
             return Err(e);
         }
     }
+
 }
