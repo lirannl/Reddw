@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "---sql\n        update queue set was_set = 1, date = $1 where id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "71c625028c654a5c498ae2e237136146c7168b92d31ce9a9ebfb685a1d0e0a46"
+}

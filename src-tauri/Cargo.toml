@@ -21,7 +21,7 @@ tauri = { version = "1.2.0", features = ["system-tray"] }
 reqwest = { version = "0.11.13", features= ["serde_json"] }
 wallpaper = { version = "3.2.0", features = ["reqwest"] }
 notify = { version ="5.0.0", features = ["serde"] }
-tokio = { version ="1.22.0", features = ["time", "rt", "macros"] }
+tokio = { version ="1.22.0", features = ["time", "rt", "macros", "process"] }
 serde = { version = "1.0", features = ["derive"] }
 window-vibrancy = "0.3.1"
 mime_guess = "2.0.4"
@@ -32,14 +32,14 @@ open = "3.2.0"
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10.6"
 data-encoding = "2.3.3"
-rmp-serde = "1.1.1"
+rmp-serde = "1.1.2"
 rfd = "0.10"
 clap = { version = "4.2.1", features = ["derive"] }
 whoami = "1.4.0"
 hex = "0.4.3"
-lazy_static = "1.4.0"
+lazy_static = "1.4"
 base64 = "0.21.0"
-reddw-source-plugin = { path = "../plugins/reddw-source-plugin" }
+reddw-source-plugin = { path = "../plugins/reddw-source-plugin", features = ["sqlx"] }
 
 [features]
 # by default Tauri runs in production mode

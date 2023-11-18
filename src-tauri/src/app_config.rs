@@ -1,12 +1,13 @@
 use anyhow::{anyhow, Result};
 use notify::{recommended_watcher, RecursiveMode, Watcher};
+use reddw_source_plugin::SourceParameters;
 use rfd;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, read_to_string},
     path::{Path, PathBuf},
     thread::{self, spawn},
-    time::Duration,
+    time::Duration, collections::HashMap,
 };
 use tauri::{
     async_runtime::{block_on, Mutex, Sender},
@@ -35,13 +36,14 @@ pub struct AppConfig {
     /// Allow fetching wallpapers from Not Safe For Work sources (aka - sexually explicit content/gore)
     pub allow_nsfw: bool,
     pub display_background: bool,
-    pub sources: Vec<Source>,
+    pub sources: HashMap<(String, String), SourceParameters>,
     #[ts(type = "{secs: number, nanos: number}")]
     /// How often to switch new wallpapers (in seconds)
     pub interval: Duration,
     pub cache_dir: PathBuf,
     // Max cache size, in megabytes
     pub cache_size: f64,
+    pub plugins_dir: Option<PathBuf>,
     pub history_amount: i32,
     pub theme: String,
 }
@@ -50,11 +52,12 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             allow_nsfw: false,
-            sources: vec![Default::default()],
+            sources: HashMap::new(),
             interval: Duration::from_secs(60 * 60),
             cache_dir: PathBuf::new(),
             cache_size: 100.0,
             history_amount: 10,
+            plugins_dir: None,
             theme: "default".to_string(),
             display_background: true,
         }

@@ -8,8 +8,12 @@ repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+sqlx = ["dep:sqlx"]
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 ts-rs = "6.2"
-sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "chrono", "offline"] }
 chrono = { version = "0.4", features = ["serde"] }
+rmp-serde = "1.1"
+sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "chrono", "offline"], optional = true }

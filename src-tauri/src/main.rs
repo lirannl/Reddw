@@ -1,17 +1,12 @@
 #![windows_subsystem = "windows"]
 #![allow(incomplete_features)]
-#![feature(
-    async_closure,
-    absolute_path,
-    let_chains,
-    if_let_guard
-)]
+#![feature(async_closure, absolute_path, let_chains, if_let_guard)]
 
 mod app_config;
 mod app_handle_ext;
 mod automation_socket;
 mod queue;
-mod sources;
+mod source_host;
 mod tray;
 mod wallpaper_changer;
 use crate::{
@@ -86,6 +81,7 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            block_on(source_host::host_plugins(app.handle()))?;
             Ok(())
         })
         .invoke_handler(generate_handler![

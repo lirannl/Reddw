@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM queue ORDER BY date DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "data_url",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "info_url",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "date",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "source",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "was_set",
+        "ordinal": 6,
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "45710df64a2c76358333f681944e8610155bbcc293fddaf346bce78b266a193b"
+}
