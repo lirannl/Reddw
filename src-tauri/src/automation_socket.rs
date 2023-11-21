@@ -1,9 +1,9 @@
-use crate::{app_config::Source, main_window_setup, wallpaper_changer::update_wallpaper};
+use crate::{main_window_setup, wallpaper_changer::update_wallpaper};
 use anyhow::{anyhow, Result};
-#[cfg(target_family = "unix")]
-use std::fs::remove_file;
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
+#[cfg(target_family = "unix")]
+use std::fs::remove_file;
 use std::{io::ErrorKind, process::exit};
 use tauri::{async_runtime::spawn, AppHandle, Manager};
 use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -26,7 +26,7 @@ pub struct Args {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     UpdateWallpaper,
-    UpdateFromSource(Source),
+    UpdateFromSource(String),
     Show,
     FetchCache,
     Quit,
@@ -86,14 +86,16 @@ pub async fn participate(args: &Args, app: AppHandle) -> Result<()> {
                 hex::encode(whoami::username())
             );
             let mut listener = tokio::net::UnixListener::bind(socket_path.clone());
-            if let Err(e) = &listener && e.kind() == ErrorKind::AddrInUse {
+            if let Err(e) = &listener
+                && e.kind() == ErrorKind::AddrInUse
+            {
                 let stream_result = tokio::net::UnixStream::connect(socket_path.clone()).await;
-                if let Ok(mut stream) = stream_result
-                {
+                if let Ok(mut stream) = stream_result {
                     connect(args, &mut stream).await?;
                     exit(0);
-                }
-                else if let Err(e) = stream_result && e.kind() == ErrorKind::ConnectionRefused {
+                } else if let Err(e) = stream_result
+                    && e.kind() == ErrorKind::ConnectionRefused
+                {
                     remove_file(socket_path.clone())?;
                     listener = tokio::net::UnixListener::bind(socket_path.clone());
                 }

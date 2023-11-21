@@ -5,6 +5,6 @@ package.license = "GPL3"
 package.authors = ["Liran Piade"]
 package.repository = "https://github.com/lirannl/reddw"
 
-members = [ "src-tauri", "plugins/reddw-source-plugin", "plugins/reddw-wallhaven" ]
+members = [ "src-tauri", "plugins/reddw-source-plugin", "plugins/reddw-wallhaven" , "plugins/plugin_tester"]
 default-members = [ "src-tauri" ]
 resolver = "2"

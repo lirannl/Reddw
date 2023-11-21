@@ -893,6 +893,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum-primitive-derive"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c375b9c5eadb68d0a6efee2999fef292f45854c3444c86f09d8ab086ba942b0e"
+dependencies = [
+ "num-traits",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1039,6 +1050,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures"
+version = "0.3.29"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da0290714b38af9b4a7b094b8a37086d1b4e61f2df9122c3cad2577669145335"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-io",
+ "futures-sink",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1122,6 +1148,7 @@ version = "0.3.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a19526d624e703a3179b3d322efec918b6246ea0fa51d41124525f00f1cc8104"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -2733,6 +2760,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin_tester"
+version = "0.2.0"
+dependencies = [
+ "reddw-source-plugin",
+ "rmp-serde",
+ "serde",
+ "tokio",
+]
+
+[[package]]
 name = "png"
 version = "0.17.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2926,6 +2963,7 @@ dependencies = [
  "chrono",
  "clap",
  "data-encoding",
+ "futures",
  "hex",
  "lazy_static",
  "mime_guess",
@@ -2935,6 +2973,7 @@ dependencies = [
  "reddw-source-plugin",
  "reqwest",
  "rfd",
+ "rmp-futures",
  "rmp-serde",
  "serde",
  "serde_json",
@@ -2967,6 +3006,7 @@ dependencies = [
  "anyhow",
  "lazy_static",
  "reddw-source-plugin",
+ "reqwest",
  "rmp-serde",
  "serde",
  "tokio",
@@ -3145,6 +3185,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmp-futures"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bc9a69ca8b940ad2602a451b647912acba23242c70d261558791d7305e3b208"
+dependencies = [
+ "byteorder",
+ "enum-primitive-derive",
+ "futures",
+ "num-traits",
+ "rmp",
+ "rmpv",
+ "slab",
+]
+
+[[package]]
 name = "rmp-serde"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3153,6 +3208,16 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
+]
+
+[[package]]
+name = "rmpv"
+version = "0.4.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c760afe11955e16121e36485b6b828326c3f0eaff1c31758d96dbeb5cf09fd5"
+dependencies = [
+ "num-traits",
+ "rmp",
 ]
 
 [[package]]

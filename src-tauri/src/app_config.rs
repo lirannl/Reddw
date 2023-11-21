@@ -4,10 +4,11 @@ use reddw_source_plugin::SourceParameters;
 use rfd;
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs::{self, read_to_string},
     path::{Path, PathBuf},
     thread::{self, spawn},
-    time::Duration, collections::HashMap,
+    time::Duration,
 };
 use tauri::{
     async_runtime::{block_on, Mutex, Sender},
@@ -15,32 +16,20 @@ use tauri::{
 };
 use ts_rs::TS;
 
-use crate::{app_handle_ext::AppHandleExt, queue::manage_queue};
+use crate::{app_handle_ext::AppHandleExt, queue::manage_queue, source_host::PluginHostMode};
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
-#[ts(export_to = "../plugins/reddw-source-plugin/bindings/")]
-pub enum Source {
-    Subreddit(String),
-}
-impl Default for Source {
-    fn default() -> Self {
-        Self::Subreddit("wallpapers".to_string())
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, TS)]
-#[ts(export)]
-#[ts(export_to = "../plugins/reddw-source-plugin/bindings/")]
 pub struct AppConfig {
     /// Allow fetching wallpapers from Not Safe For Work sources (aka - sexually explicit content/gore)
     pub allow_nsfw: bool,
     pub display_background: bool,
-    pub sources: HashMap<(String, String), SourceParameters>,
+    pub sources: HashMap<String, SourceParameters>,
     #[ts(type = "{secs: number, nanos: number}")]
     /// How often to switch new wallpapers (in seconds)
     pub interval: Duration,
     pub cache_dir: PathBuf,
+    pub plugin_host_mode: PluginHostMode,
     // Max cache size, in megabytes
     pub cache_size: f64,
     pub plugins_dir: Option<PathBuf>,
@@ -58,6 +47,7 @@ impl Default for AppConfig {
             cache_size: 100.0,
             history_amount: 10,
             plugins_dir: None,
+            plugin_host_mode: PluginHostMode::Daemon,
             theme: "default".to_string(),
             display_background: true,
         }

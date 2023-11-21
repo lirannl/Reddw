@@ -12,7 +12,7 @@
     });
 
     const getSrcTypes = (cfg: AppConfig) =>
-        cfg.sources.map((src) => Object.keys(src)[0] as keyof Source);
+        Object.keys(cfg.sources).map((src) => Object.keys(src)[0] as keyof Source);
 
     let srcTypes: (keyof Source)[] = getSrcTypes(config);
 

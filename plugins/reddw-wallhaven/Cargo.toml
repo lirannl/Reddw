@@ -8,8 +8,9 @@ repository.workspace = true
 
 [dependencies]
 lazy_static = "1.4"
-reddw-source-plugin = { version = "0.2.0", path = "../reddw-source-plugin" }
+reddw-source-plugin = { path = "../reddw-source-plugin" }
 serde = { version = "1.0", features = ["derive"] }
 rmp-serde = "1.1"
 anyhow = "1.0.66"
-tokio = { version = "1.34.0", features = ["rt", "macros"] }
+tokio = { version = "1.34.0", features = ["rt-multi-thread", "macros", "sync"] }
+reqwest = {version = "0.11.22", features = ["serde_json"]}

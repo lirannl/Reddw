@@ -1,6 +1,7 @@
 use crate::app_handle_ext::AppHandleExt;
+use crate::source_host::Plugins;
 use crate::wallpaper_changer::download_wallpaper;
-use crate::app_config::Source;
+use ::futures::future::join_all;
 use anyhow::{anyhow, Result};
 use reddw_source_plugin::Wallpaper;
 use sqlx::migrate::MigrateDatabase;
@@ -59,20 +60,37 @@ pub async fn trim_queue(app: &tauri::AppHandle) -> Result<()> {
 
 #[tauri::command]
 pub async fn cache_queue(app: tauri::AppHandle) -> Result<usize, String> {
-    let config = app.get_config().await.clone();
-    let mut ret = usize::default();
-    trim_queue(&app).await.map_err(|e| e.to_string())?;
-    for source in config.sources.iter() {
-        match source {
-            Source::Subreddit(sub) => {
-                ret += get_from_subreddit(sub, &app)
-                    .await
-                    .map_err(|e| e.to_string())?
+    async {
+        trim_queue(&app).await?;
+        let plugins = app.state::<Plugins>();
+        let mut plugins = plugins.lock().await;
+        let wallpapers = join_all(plugins.values_mut().map(|plugin| {
+            let app = app.app_handle();
+            async move {
+                let config = app.get_config().await;
+                let name = plugin.name.clone();
+                let mut wallpapers = Vec::new();
+                for instance in config.sources.keys().filter_map(|key| {
+                    let (plugin, instance) = key.split_once("_")?;
+                    if plugin != name {
+                        return None;
+                    }
+                    Some(instance)
+                }) {
+                    wallpapers.extend(plugin.get_wallpapers(instance.to_string()).await?);
+                }
+                Ok(wallpapers)
             }
-        }
+        }))
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>>>()?;
+        let wallpapers = wallpapers.into_iter().flat_map(|w| w).collect::<Vec<_>>();
+        spawn(download_queue(app.app_handle()));
+        Ok(wallpapers.len())
     }
-    spawn(download_queue(app));
-    Ok(ret)
+    .await
+    .map_err(|err: anyhow::Error| err.to_string())
 }
 
 pub async fn download_queue(app: tauri::AppHandle) -> Result<()> {

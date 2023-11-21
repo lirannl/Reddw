@@ -82,6 +82,7 @@ pub enum SourcePluginMessage {
     DeregisterInstance(String),
     /// Use an instance to get wallpapers
     GetWallpapers(String),
+    GetInstances,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,6 +99,7 @@ pub enum SourcePluginResponse {
     DeregisterInstance,
     /// Use an instance to get wallpapers
     GetWallpapers(Vec<Wallpaper>),
+    GetInstances(Vec<String>),
 }
 
 pub trait ReddwSource<Parameters> {
@@ -120,7 +122,7 @@ pub trait ReddwSource<Parameters> {
     fn get_wallpapers(
         id: String,
     ) -> impl Future<Output = Result<Vec<Wallpaper>, Box<dyn Error>>> + Send;
-
+    fn get_instances() -> impl Future<Output = Result<Vec<String>, Box<dyn Error>>> + Send;
     fn main_loop() -> impl Future<Output = Result<(), Box<dyn Error>>> + Send {
         async {
             let result: Result<SourcePluginResponse, Box<dyn Error>> =
@@ -138,7 +140,6 @@ pub trait ReddwSource<Parameters> {
                         Self::register_instance(id, params.try_into()?).await?;
                         Ok(SourcePluginResponse::RegisterInstance)
                     }
-
                     SourcePluginMessage::DeregisterInstance(id) => {
                         Self::deregister_instance(id).await?;
                         Ok(SourcePluginResponse::DeregisterInstance)
@@ -146,13 +147,17 @@ pub trait ReddwSource<Parameters> {
                     SourcePluginMessage::GetWallpapers(id) => Ok(
                         SourcePluginResponse::GetWallpapers(Self::get_wallpapers(id).await?),
                     ),
+                    SourcePluginMessage::GetInstances => Ok(SourcePluginResponse::GetInstances(
+                        Self::get_instances().await?,
+                    )),
                 };
             match result {
                 Ok(response) => {
                     write(&mut stdout(), &response).unwrap_or_else(|err| eprintln!("{err}"))
                 }
-                Err(error) => eprintln!("{error}"),
+                Err(error) => eprint!("{error}"),
             }
+            eprint!("\n");
             stdout().flush()?;
             stderr().flush()?;
             Ok(())

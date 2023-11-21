@@ -9,7 +9,8 @@
     "strict": true,
     "paths": {
       "$rs/*": [
-        "../plugins/reddw-source-plugin/bindings/*"
+        "../plugins/reddw-source-plugin/bindings/*",
+        "bindings"
       ]
     }
   },
