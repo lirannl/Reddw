@@ -1,15 +1,22 @@
 <script lang="ts" context="module">
   import { writable } from "svelte/store";
+
+  export const installed_source_plugins = writable({} as AppSourcePlugins);
   export const configuration = writable({} as AppConfig);
   export const wp_list = writable([] as Wallpaper[]);
   export const bg_data = writable<
     { data: string; lightness: number; bg_opacity: number } | undefined
   >();
 
+  export const dialog_data_model = writable(
+    {} as Record<string, DialogFieldType>,
+  );
+  export const dialog_data_output = writable({} as Record<string, unknown>);
+  export const dialog_data_show = writable(false);
   export const inject_wallpaper_into_app = async (
     config: AppConfig,
     wallpaper: Wallpaper,
-    main: HTMLElement
+    main: HTMLElement,
   ) => {
     if (!config?.display_background) return;
     const data = await invoke<string>("get_wallpaper", { wallpaper });
@@ -29,16 +36,22 @@
   import Config from "./Config.svelte";
   import type { AppConfig } from "$rs/AppConfig";
   import type { Wallpaper } from "$rs/Wallpaper";
-
   import { onDestroy, onMount } from "svelte";
-  import { reactToAppConfig } from "./misc";
+  import {
+    reactToAppConfig,
+    type AppSourcePlugins as AppSourcePlugins,
+  } from "./misc";
   import { listen } from "@tauri-apps/api/event";
   import { getImageLightness } from "./oldJs";
   import Queue from "./Queue.svelte";
+  import Prompt from "./prompt/Component.svelte";
+  import type { DialogFieldType } from "./prompt";
 
   export let initConfig: AppConfig;
   let main: HTMLElement;
   configuration.set(initConfig);
+  export let initSourcePlugins: AppSourcePlugins;
+  installed_source_plugins.set(initSourcePlugins);
   let config: AppConfig | undefined;
   let queue: Wallpaper[] | undefined;
 
@@ -57,7 +70,7 @@
       if (config && queue) reactToAppConfig(oldConfig, newConfig, queue, main);
       configuration.set(newConfig);
       config = newConfig;
-    }
+    },
   ).then((unlisten) => {
     unlistens.push(unlisten);
   });
@@ -85,6 +98,7 @@
 </script>
 
 <main class="w-screen h-screen overflow-y-auto p-2 space-y-2" bind:this={main}>
+  <Prompt />
   {#if config}
     <Config {config} />
   {/if}
@@ -95,7 +109,8 @@
       >
       <button
         class="btn bg-opacity-60"
-        on:click={() => invoke("update_wallpaper")}>Update wallpaper</button
+        on:click={async () => console.log(await invoke("update_wallpaper"))}
+        >Update wallpaper</button
       >
       <button
         class="btn btn-warning bg-opacity-60"

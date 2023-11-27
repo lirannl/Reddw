@@ -2,10 +2,15 @@
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use reddw_source_plugin::{ReddwSource, SourceParameterType, SourceParameters, Wallpaper};
-use reqwest::{Method, Url};
+use reqwest::{Client, Method, Url};
+use response_data::BaseResponse;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, error::Error};
 use tokio::sync::Mutex;
+mod response_data;
+
+#[derive(Serialize, Deserialize)]
+struct WallHavenItem {}
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 struct Parameters {}
@@ -46,6 +51,11 @@ impl ReddwSource<Parameters> for WallHavenSource {
     }
 
     async fn register_instance(id: String, params: SourceParameters) -> Result<(), Box<dyn Error>> {
+        if id.contains("_") {
+            Err(anyhow!(
+                "Invalid instance ID. Instance IDs cannot contain underscores"
+            ))?
+        }
         let parameters = params.try_into()?;
         let mut instances = (*INSTANCES).lock().await;
         instances.insert(id, parameters);
@@ -68,13 +78,31 @@ impl ReddwSource<Parameters> for WallHavenSource {
                 .ok_or(anyhow!("No registered instance under the name \"{id}\""))?
                 .clone()
         };
-        reqwest::Request::new(
+        let request = reqwest::Request::new(
             Method::GET,
             Url::parse("https://wallhaven.cc/api/v1/search")?,
-        )
-        .body()
-        .ok_or(anyhow!("Invalid response"))?;
-        Ok(vec![])
+        );
+        let response = Client::new().execute(request).await?;
+        if !response.status().is_success() {
+            Err(anyhow!(
+                "HTTP {} while attempting to communicate with WallHaven",
+                response.status()
+            ))?;
+        }
+        let response: BaseResponse = serde_json::from_slice(&response.bytes().await?)?;
+        Ok(response
+            .data
+            .into_iter()
+            .map(|datum| {
+                Wallpaper::new(
+                    datum.id,
+                    None,
+                    datum.path,
+                    Some(datum.url),
+                    format!("{NAME}_{id}"),
+                )
+            })
+            .collect())
     }
 
     async fn get_instances() -> Result<Vec<String>, Box<dyn Error>> {

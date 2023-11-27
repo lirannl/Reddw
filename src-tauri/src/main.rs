@@ -12,6 +12,7 @@ mod wallpaper_changer;
 use crate::{
     app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},
+    source_host::query_available_sources,
     wallpaper_changer::{get_wallpaper, set_wallpaper, update_wallpaper},
 };
 use anyhow::{anyhow, Result};
@@ -88,6 +89,7 @@ fn main() {
             get_config,
             set_config,
             update_wallpaper,
+            query_available_sources,
             cache_queue,
             get_queue,
             select_folder,

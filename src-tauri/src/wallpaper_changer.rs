@@ -114,7 +114,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
     app_handle
         .tray_handle()
         .get_item("open_info")
-        .set_title(wallpaper.name.as_str())?;
+        .set_title(wallpaper.name.as_deref().unwrap_or("Untitled"))?;
     eprintln!("New wallpaper: {:#?}", wallpaper);
     Ok(())
 }
@@ -257,7 +257,7 @@ pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Resul
         app_handle
             .tray_handle()
             .get_item("open_info")
-            .set_title(wallpaper.name.as_str())?;
+            .set_title(wallpaper.name.as_deref().unwrap_or("Untitled"))?;
         app_handle.emit_all("wallpaper_updated", wallpaper.clone())?;
         eprintln!("New wallpaper: {:#?}", wallpaper);
         Ok(())

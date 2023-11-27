@@ -18,6 +18,7 @@ use tokio::{
 use ts_rs::TS;
 
 #[derive(Clone, Debug, Deserialize, Serialize, TS)]
+#[ts(export)]
 pub enum PluginHostMode {
     Daemon,
     LowRAM,
@@ -141,11 +142,19 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
         fs::create_dir_all(&plugins_dir).await?;
     }
     let mut plugins = HashMap::new();
-    for plugin in read_dir(plugins_dir)?.filter_map(|f| f.ok()) {
+    let plugin_files = read_dir(plugins_dir)?.filter_map(|f| f.ok());
+    for plugin in plugin_files {
         // Check execute bit
         #[cfg(target_family = "unix")]
-        if plugin.metadata()?.permissions().mode() % 2 != 0 {
-            continue;
+        {
+            let permissions: Vec<u8> = format!("{:o}", plugin.metadata()?.permissions().mode())
+                [3..]
+                .chars()
+                .filter_map(|c| format!("{c}").parse().ok())
+                .collect();
+            if permissions.iter().all(|p| p % 2 == 0) {
+                continue;
+            }
         }
         let plugin_file = plugin.file_name();
         let mut plugin = PluginHandle::new(
@@ -164,7 +173,17 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
         })?;
         let name = plugin.message(SourcePluginMessage::GetName).await?;
         let name = match name {
-            SourcePluginResponse::GetName(name) => Ok(name),
+            SourcePluginResponse::GetName(name) => {
+                if name.contains("_") {
+                    Err(anyhow!(
+                        "Plugin \"{name}\" ({:?}) is invalid. Plugin names cannot contain '_'",
+                        plugin_file
+                    ))
+                } else {
+                    Ok(name)
+                }
+            }
+
             _ => Err(anyhow!(
                 "Couldn't get source plugin name for the plugin \"{:?}\"",
                 plugin_file
@@ -190,4 +209,21 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
     }
     app.manage::<Plugins>(Mutex::new(plugins));
     Ok(())
+}
+
+#[tauri::command]
+pub async fn query_available_sources(
+    app: AppHandle,
+) -> Result<HashMap<String, HashMap<String, SourceParameterType>>, String> {
+    let plugins: Result<HashMap<_, _>> = {
+        let lock = app.state::<Plugins>();
+        let mut lock = lock.lock().await;
+        futures::future::join_all(lock.iter_mut().map(async move |(name, handle)| {
+            Ok::<_, anyhow::Error>((name.to_string(), handle.get_parameters().await?))
+        }))
+        .await
+    }
+    .into_iter()
+    .collect();
+    plugins.map_err(|e| format!("{:#?}", e))
 }

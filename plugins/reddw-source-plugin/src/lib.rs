@@ -18,10 +18,11 @@ use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[cfg_attr(sqlx, derive(FromRow))]
+#[ts(export_to = "../../src-tauri/bindings/")]
 #[ts(export)]
 pub struct Wallpaper {
     pub id: String,
-    pub name: String,
+    pub name: Option<String>,
     pub data_url: String,
     pub info_url: Option<String>,
     #[ts(type = "string")]
@@ -33,7 +34,7 @@ pub struct Wallpaper {
 impl Wallpaper {
     pub fn new(
         id: String,
-        name: String,
+        name: Option<String>,
         data_url: String,
         info_url: Option<String>,
         source: String,
@@ -51,6 +52,8 @@ impl Wallpaper {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[ts(export_to = "../../src-tauri/bindings/")]
+#[ts(export)]
 pub enum SourceParameter {
     Empty,
     String(String),
@@ -58,7 +61,9 @@ pub enum SourceParameter {
     Double(f64),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, TS)]
+#[ts(export_to = "../../src-tauri/bindings/")]
+#[ts(export)]
 pub enum SourceParameterType {
     Empty,
     String,

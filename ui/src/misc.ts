@@ -1,4 +1,5 @@
 import type { AppConfig } from "$rs/AppConfig";
+import type { SourceParameterType } from "$rs/SourceParameterType";
 import type { Wallpaper } from "$rs/Wallpaper";
 import { inject_wallpaper_into_app } from "./App.svelte";
 /** React to AppConfig updates globally */
@@ -10,3 +11,5 @@ export const reactToAppConfig = (oldConfig: AppConfig, config: AppConfig, queue:
         main.style.backgroundImage = "";
     }
 }
+
+export type AppSourcePlugins = Record<string, Record<string, SourceParameterType>>;
