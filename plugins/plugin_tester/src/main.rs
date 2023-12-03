@@ -4,7 +4,6 @@ use rmp_serde::{from_slice, to_vec};
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
 use std::{
-    collections::HashMap,
     env::args,
     error::Error,
     fs::{canonicalize, metadata},

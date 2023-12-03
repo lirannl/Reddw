@@ -5,15 +5,15 @@
 mod app_config;
 mod app_handle_ext;
 mod automation_socket;
-mod queue;
 mod log;
+mod queue;
 mod source_host;
 mod tray;
 mod wallpaper_changer;
 use crate::{
     app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},
-    source_host::query_available_sources,
+    source_host::{load_plugin_ui, query_available_sources},
     wallpaper_changer::{get_wallpaper, set_wallpaper, update_wallpaper},
 };
 use anyhow::{anyhow, Result};
@@ -91,6 +91,7 @@ fn main() {
             set_config,
             update_wallpaper,
             query_available_sources,
+            load_plugin_ui,
             cache_queue,
             get_queue,
             select_folder,

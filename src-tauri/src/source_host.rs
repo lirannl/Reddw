@@ -81,6 +81,12 @@ impl PluginHandle {
             _ => Err(anyhow!("Invalid response")),
         }
     }
+    async fn get_assets(&mut self) -> Result<HashMap<String, Vec<u8>>> {
+        match self.message(SourcePluginMessage::GetAssets).await? {
+            SourcePluginResponse::GetAssets(assets) => Ok(assets),
+            _ => Err(anyhow!("Invalid response")),
+        }
+    }
     pub async fn register_instance(&mut self, id: String, parameters: Vec<u8>) -> Result<()> {
         match self
             .message(SourcePluginMessage::RegisterInstance(id, parameters))
@@ -200,7 +206,9 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
                 }
             });
         for (id, params) in instances {
-            plugin.register_instance(id.to_string(), rmp_serde::to_vec(&params)?).await?;
+            plugin
+                .register_instance(id.to_string(), rmp_serde::to_vec(&params)?)
+                .await?;
         }
         plugins.insert(name, plugin);
     }
@@ -215,4 +223,20 @@ pub async fn query_available_sources(app: AppHandle) -> Result<Vec<String>, Stri
     let keys = lock.keys();
     let keys: Vec<_> = keys.map(|s| s.to_string()).collect();
     Ok(keys)
+}
+
+#[tauri::command]
+pub async fn load_plugin_ui(
+    app: AppHandle,
+    plugin: String,
+) -> Result<HashMap<String, Vec<u8>>, String> {
+    let state = app.state::<Plugins>();
+    let mut lock = state.lock().await;
+    let assets = lock
+        .get_mut(&plugin)
+        .ok_or("Plugin {plugin} is not installed".to_string())?
+        .get_assets()
+        .await
+        .map_err(|err| err.to_string())?;
+    Ok(assets)
 }
