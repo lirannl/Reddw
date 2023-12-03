@@ -1,31 +1,36 @@
 #![feature(async_closure, let_chains)]
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use reddw_source_plugin::{ReddwSource, SourceParameterType, SourceParameters, Wallpaper};
+use reddw_source_plugin::{ReddwSource, Wallpaper};
 use reqwest::{Client, Method, Url};
 use response_data::BaseResponse;
+use rmp_serde::to_vec;
+use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, error::Error};
 use tokio::sync::Mutex;
 mod response_data;
 
-#[derive(Serialize, Deserialize)]
-struct WallHavenItem {}
+#[derive(RustEmbed)]
+#[folder = "ui/dist/"]
+struct StaticAssets;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
-struct Parameters {}
-impl TryFrom<SourceParameters> for Parameters {
+struct Parameters {
+    search_terms: Vec<String>,
+}
+impl TryFrom<Vec<u8>> for Parameters {
     type Error = anyhow::Error;
 
-    fn try_from(_value: SourceParameters) -> Result<Self, Self::Error> {
-        Ok(Parameters {})
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(rmp_serde::from_slice(&value)?)
     }
 }
-impl TryInto<SourceParameters> for Parameters {
+impl TryInto<Vec<u8>> for Parameters {
     type Error = anyhow::Error;
 
-    fn try_into(self) -> Result<SourceParameters, Self::Error> {
-        Ok(HashMap::new())
+    fn try_into(self) -> Result<Vec<u8>, Self::Error> {
+        Ok(to_vec(&self)?)
     }
 }
 
@@ -35,11 +40,16 @@ impl ReddwSource<Parameters> for WallHavenSource {
         Ok(NAME.to_owned())
     }
 
-    fn get_parameters() -> Result<HashMap<String, SourceParameterType>, Box<dyn Error>> {
-        Ok(HashMap::<String, SourceParameterType>::new())
+    fn get_assets() -> Result<HashMap<String, Vec<u8>>, Box<dyn Error>> {
+        Ok(StaticAssets::iter()
+            .filter_map(|path| {
+                let data = StaticAssets::get(&path)?.data.into_owned();
+                Some((path.into(), data))
+            })
+            .collect())
     }
 
-    async fn inspect_instance(id: String) -> Result<SourceParameters, Box<dyn Error>> {
+    async fn inspect_instance(id: String) -> Result<Vec<u8>, Box<dyn Error>> {
         let parameters = (*INSTANCES)
             .lock()
             .await
@@ -50,7 +60,7 @@ impl ReddwSource<Parameters> for WallHavenSource {
         Ok(parameters)
     }
 
-    async fn register_instance(id: String, params: SourceParameters) -> Result<(), Box<dyn Error>> {
+    async fn register_instance(id: String, params: Vec<u8>) -> Result<(), Box<dyn Error>> {
         if id.contains("_") {
             Err(anyhow!(
                 "Invalid instance ID. Instance IDs cannot contain underscores"
@@ -102,6 +112,7 @@ impl ReddwSource<Parameters> for WallHavenSource {
                     format!("{NAME}_{id}"),
                 )
             })
+            .take(2)
             .collect())
     }
 

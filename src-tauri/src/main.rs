@@ -6,6 +6,7 @@ mod app_config;
 mod app_handle_ext;
 mod automation_socket;
 mod queue;
+mod log;
 mod source_host;
 mod tray;
 mod wallpaper_changer;

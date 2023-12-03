@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use notify::{recommended_watcher, RecursiveMode, Watcher};
-use reddw_source_plugin::SourceParameters;
 use rfd;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::{
     collections::HashMap,
     fs::{self, read_to_string},
@@ -16,7 +16,7 @@ use tauri::{
 };
 use ts_rs::TS;
 
-use crate::{app_handle_ext::AppHandleExt, queue::manage_queue, source_host::PluginHostMode};
+use crate::{app_handle_ext::AppHandleExt, queue::manage_queue, source_host::PluginHostMode, log::LogLevel};
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
@@ -24,7 +24,8 @@ pub struct AppConfig {
     /// Allow fetching wallpapers from Not Safe For Work sources (aka - sexually explicit content/gore)
     pub allow_nsfw: bool,
     pub display_background: bool,
-    pub sources: HashMap<String, SourceParameters>,
+    #[ts(type = "Record<string, any>")]
+    pub sources: HashMap<String, Value>,
     #[ts(type = "{secs: number, nanos: number}")]
     /// How often to switch new wallpapers (in seconds)
     pub interval: Duration,
@@ -73,7 +74,7 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
     {
         let config_json = read_to_string(&config_path).unwrap();
         let config: AppConfig = serde_json::from_str(&config_json).unwrap_or_else(|e| {
-            println!("Failed to parse config: {:#?}", e);
+            app.log(&format!("Failed to parse config: {:#?}", e), LogLevel::Error);
             let mut def_conf = AppConfig::default();
             def_conf.cache_dir = app.path_resolver().app_cache_dir().unwrap();
             let def_conf_str = serde_json::to_string_pretty(&def_conf)

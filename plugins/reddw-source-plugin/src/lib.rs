@@ -51,38 +51,16 @@ impl Wallpaper {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, TS)]
-#[ts(export_to = "../../src-tauri/bindings/")]
-#[ts(export)]
-pub enum SourceParameter {
-    Empty,
-    String(String),
-    Int(u32),
-    Double(f64),
-}
-
-#[derive(Debug, Serialize, Deserialize, TS)]
-#[ts(export_to = "../../src-tauri/bindings/")]
-#[ts(export)]
-pub enum SourceParameterType {
-    Empty,
-    String,
-    Int,
-    Double,
-}
-
-pub type SourceParameters = HashMap<String, SourceParameter>;
-
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SourcePluginMessage {
     /// Gets the source plugin's name
     GetName,
-    /// Gets the general structure of the parameters instances of this plugin take
-    GetParameters,
+    /// Gets the embedded static assets for the application
+    GetAssets,
     /// Check the parameters for a given instance
     InspectInstance(String),
     /// Create/modify an instance
-    RegisterInstance(String, SourceParameters),
+    RegisterInstance(String, Vec<u8>),
     /// Remove an instance
     DeregisterInstance(String),
     /// Use an instance to get wallpapers
@@ -94,10 +72,10 @@ pub enum SourcePluginMessage {
 pub enum SourcePluginResponse {
     /// Gets the source plugin's name
     GetName(String),
-    /// Gets the general structure of the parameters instances of this plugin take
-    GetParameters(HashMap<String, SourceParameterType>),
+    /// Gets the embedded static assets for the application
+    GetAssets(HashMap<String, Vec<u8>>),
     /// Check the parameters for a given instance
-    InspectInstance(SourceParameters),
+    InspectInstance(Vec<u8>),
     /// Create/modify an instance
     RegisterInstance,
     /// Remove an instance
@@ -110,16 +88,15 @@ pub enum SourcePluginResponse {
 pub trait ReddwSource<Parameters> {
     /// Gets the source plugin's name
     fn get_name() -> Result<String, Box<dyn Error>>;
-    /// Gets the general structure of the parameters instances of this plugin take
-    fn get_parameters() -> Result<HashMap<String, SourceParameterType>, Box<dyn Error>>;
+    /// Gets the embedded static assets for the application
+    fn get_assets() -> Result<HashMap<String, Vec<u8>>, Box<dyn Error>>;
     /// Check the parameters for a given instance
-    fn inspect_instance(
-        id: String,
-    ) -> impl Future<Output = Result<SourceParameters, Box<dyn Error>>> + Send;
+    fn inspect_instance(id: String)
+        -> impl Future<Output = Result<Vec<u8>, Box<dyn Error>>> + Send;
     /// Create/modify an instance
     fn register_instance(
         id: String,
-        params: SourceParameters,
+        params: Vec<u8>,
     ) -> impl Future<Output = Result<(), Box<dyn Error>>> + Send;
     /// Remove an instance
     fn deregister_instance(id: String) -> impl Future<Output = Result<(), Box<dyn Error>>> + Send;
@@ -135,8 +112,8 @@ pub trait ReddwSource<Parameters> {
                     SourcePluginMessage::GetName => {
                         Ok(SourcePluginResponse::GetName(Self::get_name()?))
                     }
-                    SourcePluginMessage::GetParameters => {
-                        Ok(SourcePluginResponse::GetParameters(Self::get_parameters()?))
+                    SourcePluginMessage::GetAssets => {
+                        Ok(SourcePluginResponse::GetAssets(Self::get_assets()?))
                     }
                     SourcePluginMessage::InspectInstance(id) => Ok(
                         SourcePluginResponse::InspectInstance(Self::inspect_instance(id).await?),

@@ -1,12 +1,10 @@
 use anyhow::{anyhow, bail, Result};
-use reddw_source_plugin::{
-    SourceParameter, SourceParameterType, SourceParameters, SourcePluginMessage,
-    SourcePluginResponse, Wallpaper,
-};
+use reddw_source_plugin::{SourcePluginMessage, SourcePluginResponse, Wallpaper};
+use rmp_serde::from_slice;
 use serde::{Deserialize, Serialize};
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
-use std::{collections::HashMap, fs::read_dir, mem::size_of, process::Stdio};
+use std::{collections::HashMap, fs::read_dir, process::Stdio};
 use tauri::{async_runtime::block_on, AppHandle, Manager};
 use tokio::{
     fs,
@@ -16,6 +14,9 @@ use tokio::{
     sync::Mutex,
 };
 use ts_rs::TS;
+
+/// Size of plugin-reading buffer
+const PLUGIN_BUF_SIZE: usize = 4000;
 
 #[derive(Clone, Debug, Deserialize, Serialize, TS)]
 #[ts(export)]
@@ -58,9 +59,16 @@ impl PluginHandle {
             String::from_utf8(err).unwrap_or_default()
         };
         let result: SourcePluginResponse = {
-            let mut buf = [0 as u8; size_of::<SourcePluginResponse>()];
-            stdout.read(&mut buf).await?;
-            rmp_serde::from_slice(&buf)
+            let mut vec = Vec::<u8>::new();
+            let mut buf = [0 as u8; PLUGIN_BUF_SIZE];
+            while let Ok(read) = stdout.read(&mut buf).await {
+                vec.write(buf.take(PLUGIN_BUF_SIZE as u64).get_ref())
+                    .await?;
+                if read < PLUGIN_BUF_SIZE {
+                    break;
+                }
+            }
+            from_slice(&vec)
         }?;
         if err != "" {
             bail!("{err}")
@@ -73,18 +81,7 @@ impl PluginHandle {
             _ => Err(anyhow!("Invalid response")),
         }
     }
-    #[allow(dead_code)]
-    pub async fn get_parameters(&mut self) -> Result<HashMap<String, SourceParameterType>> {
-        match self.message(SourcePluginMessage::GetParameters).await? {
-            SourcePluginResponse::GetParameters(parameters) => Ok(parameters),
-            _ => Err(anyhow!("Invalid response")),
-        }
-    }
-    pub async fn register_instance(
-        &mut self,
-        id: String,
-        parameters: HashMap<String, SourceParameter>,
-    ) -> Result<()> {
+    pub async fn register_instance(&mut self, id: String, parameters: Vec<u8>) -> Result<()> {
         match self
             .message(SourcePluginMessage::RegisterInstance(id, parameters))
             .await?
@@ -94,7 +91,7 @@ impl PluginHandle {
         }
     }
     #[allow(dead_code)]
-    pub async fn inspect_instance(&mut self, id: String) -> Result<SourceParameters> {
+    pub async fn inspect_instance(&mut self, id: String) -> Result<Vec<u8>> {
         match self
             .message(SourcePluginMessage::InspectInstance(id))
             .await?
@@ -203,7 +200,7 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
                 }
             });
         for (id, params) in instances {
-            plugin.register_instance(id.to_string(), params).await?;
+            plugin.register_instance(id.to_string(), rmp_serde::to_vec(&params)?).await?;
         }
         plugins.insert(name, plugin);
     }
@@ -212,18 +209,10 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
-pub async fn query_available_sources(
-    app: AppHandle,
-) -> Result<HashMap<String, HashMap<String, SourceParameterType>>, String> {
-    let plugins: Result<HashMap<_, _>> = {
-        let lock = app.state::<Plugins>();
-        let mut lock = lock.lock().await;
-        futures::future::join_all(lock.iter_mut().map(async move |(name, handle)| {
-            Ok::<_, anyhow::Error>((name.to_string(), handle.get_parameters().await?))
-        }))
-        .await
-    }
-    .into_iter()
-    .collect();
-    plugins.map_err(|e| format!("{:#?}", e))
+pub async fn query_available_sources(app: AppHandle) -> Result<Vec<String>, String> {
+    let state = app.state::<Plugins>();
+    let lock = state.lock().await;
+    let keys = lock.keys();
+    let keys: Vec<_> = keys.map(|s| s.to_string()).collect();
+    Ok(keys)
 }

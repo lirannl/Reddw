@@ -1,21 +1,38 @@
 #![feature(let_chains)]
+use reddw_source_plugin::{SourcePluginMessage, SourcePluginResponse};
+use rmp_serde::{from_slice, to_vec};
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
 use std::{
+    collections::HashMap,
     env::args,
+    error::Error,
     fs::{canonicalize, metadata},
-    mem::size_of,
     path::PathBuf,
     process::Stdio,
-    str::from_utf8,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    process::Command,
+    process::{ChildStdin, ChildStdout, Command},
 };
 
-use reddw_source_plugin::{SourcePluginMessage, SourcePluginResponse};
-use rmp_serde::{from_slice, to_vec};
+async fn message(
+    stdin: &mut ChildStdin,
+    stdout: &mut ChildStdout,
+    message: SourcePluginMessage,
+) -> Result<SourcePluginResponse, Box<dyn Error>> {
+    stdin.write(&(to_vec(&message)?)).await?;
+    const BUF_SIZE: usize = 4000;
+    let mut vec = Vec::<u8>::new();
+    let mut buf = [0 as u8; BUF_SIZE];
+    while let Ok(read) = stdout.read(&mut buf).await {
+        vec.write(buf.take(BUF_SIZE as u64).get_ref()).await?;
+        if read < BUF_SIZE {
+            break;
+        }
+    }
+    Ok(from_slice(&vec)?)
+}
 
 #[tokio::main]
 async fn main() {
@@ -42,30 +59,36 @@ async fn main() {
     let mut child = Command::new(plugin)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        // .stderr(Stdio::piped())
         .spawn()
         .unwrap();
 
     let mut stdin = child.stdin.take().unwrap();
     let mut stdout = child.stdout.take().unwrap();
-    let mut stderr = child.stderr.take().unwrap();
+    // let mut stderr = child.stderr.take().unwrap();
 
-    stdin
-        .write(&(to_vec(&SourcePluginMessage::GetName).unwrap()))
-        .await
-        .unwrap();
-    let response: SourcePluginResponse = {
-        let mut buf = [0 as u8; size_of::<SourcePluginResponse>()];
-        stdout.read(&mut buf).await.unwrap();
-        from_slice(&buf).unwrap()
-    };
-    let err = {
-        let mut err = Vec::<u8>::new();
-        stderr.read(&mut err).await.unwrap();
-        let str = from_utf8(&err).unwrap();
-        str.to_owned()
-    };
+    let response = message(&mut stdin, &mut stdout, SourcePluginMessage::GetName).await;
     println!("{:#?}", response);
-    eprintln!("{}", err);
+    message(
+        &mut stdin,
+        &mut stdout,
+        SourcePluginMessage::RegisterInstance("".to_string(), Vec::new()),
+    )
+    .await
+    .unwrap();
+    let response = message(
+        &mut stdin,
+        &mut stdout,
+        SourcePluginMessage::GetWallpapers("".to_string()),
+    )
+    .await;
+    println!("{:#?}", response);
+    // let err = {
+    //     let mut err = Vec::<u8>::new();
+    //     stderr.read(&mut err).await.unwrap();
+    //     let str = from_utf8(&err).unwrap();
+    //     str.to_owned()
+    // };
+    // eprintln!("Plugin stderr: {:#?}", err);
     child.kill().await.unwrap();
 }
