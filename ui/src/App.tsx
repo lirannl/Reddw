@@ -1,7 +1,9 @@
+import Config from "./Config";
+
 function App() {
   return (
     <>
-    Solid.
+      <Config />
     </>
   )
 }

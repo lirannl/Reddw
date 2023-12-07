@@ -42,6 +42,8 @@ base64 = "0.21.0"
 reddw-source-plugin = { path = "../plugins/reddw-source-plugin", features = ["sqlx"] }
 rmp-futures = "0.3.2"
 futures = "0.3.29"
+winproc = "0.6.4"
+nix = { version = "0.27.1", features = ["signal"] }
 
 [features]
 # by default Tauri runs in production mode

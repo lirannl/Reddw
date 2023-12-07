@@ -7,6 +7,6 @@ export default () => {
     <button onClick={() => {
       update_config({ searchTerms: ["External update"] });
     }}>Change</button>
-    <Component value={config()} onChange={e => update_config(e.detail)} onInput={e => console.log(e.detail)} />
+    <Component value={config()} />
   </>
 }
