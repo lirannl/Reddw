@@ -10,7 +10,6 @@ mod queue;
 mod source_host;
 mod tray;
 mod wallpaper_changer;
-mod ipc;
 use crate::{
     app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},

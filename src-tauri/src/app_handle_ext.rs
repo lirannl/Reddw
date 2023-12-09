@@ -48,17 +48,12 @@ impl AppHandleExt for AppHandle {
     ) -> Result<T> {
         let mut receiver = self.state::<Receiver<IPCData<Vec<u8>>>>().inner().clone();
         let message = receiver
-            .wait_for(|message| {
-                (|| match message {
-                    (IPCMessage::Init, _) => None,
-                    (t, _) if message_filter(t) => Some(()),
-                    _ => None,
-                })()
-                .is_some()
+            .wait_for(|m| match &m.0 {
+                IPCMessage::Init => false,
+                t => message_filter(t),
             })
             .await
-            .unwrap()
-            .to_owned();
+            .map(|v| v.clone())?;
         let _ = receiver.changed().await;
         Ok(from_slice(&message.1)?)
     }

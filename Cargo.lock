@@ -3114,6 +3114,7 @@ dependencies = [
 name = "reddw_ipc"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "hex",
  "lazy_static",
  "rmp-serde",

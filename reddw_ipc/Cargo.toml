@@ -15,3 +15,4 @@ whoami = "1.4.0"
 hex = "0.4.3"
 tokio = { version ="1.22.0", features = ["rt", "macros"] }
 rmp-serde = "1.1"
+anyhow = "1.0"

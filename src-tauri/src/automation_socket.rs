@@ -1,4 +1,4 @@
-use crate::{main_window_setup, wallpaper_changer::update_wallpaper};
+use crate::{app_handle_ext::AppHandleExt, main_window_setup, wallpaper_changer::update_wallpaper};
 use anyhow::{anyhow, Result};
 use reddw_ipc::{IPCData, IPCMessage, SOCKET_PATH};
 use rmp_serde::{from_slice, to_vec};
@@ -36,24 +36,7 @@ pub enum Message {
     Quit,
 }
 
-pub async fn connect(args: &Args, mut writer: impl AsyncWrite + Unpin) -> Result<()> {
-    writer
-        .write_all(&to_vec(&{
-            if args.quit {
-                Message::Quit
-            } else if args.fetch {
-                Message::FetchCache
-            } else if args.update {
-                Message::UpdateWallpaper
-            } else {
-                Message::Show
-            }
-        })?)
-        .await?;
-    Ok(())
-}
-
-pub async fn handle(app: AppHandle, message: Message) -> Result<()> {
+pub async fn handle_automation(app: AppHandle, message: Message) -> Result<()> {
     match message {
         Message::Show => {
             if app.get_window("main").is_none() {
@@ -127,25 +110,22 @@ pub async fn initiate_ipc(args: &Args, app: AppHandle) -> Result<()> {
                     let app = app.app_handle();
                     tokio::spawn(async move {
                         let message = from_slice::<IPCData<Vec<u8>>>(&buf).unwrap();
-                        // let _ = handle(app.app_handle(), from_slice(&message.1).unwrap()).await;
                         let _ = app.state::<Sender<IPCData<Vec<u8>>>>().send(message);
                     });
                 }
             });
             spawn(async move {
                 loop {
-                    let mut receiver = app_clone
-                        .state::<Receiver<IPCData<Vec<u8>>>>()
-                        .inner()
-                        .clone();
-                    let v = receiver
-                        .wait_for(|m| match m.0 {
-                            IPCMessage::Init => false,
-                            _ => true,
+                    let message = app_clone
+                        .listen_ipc::<Message>(|t: &IPCMessage| match t {
+                            IPCMessage::AutomationSocket => true,
+                            _ => false,
                         })
-                        .await.map(|v| v.clone());
-                    let _ = receiver.changed().await;
-                    eprintln!("Recieved {:#?}", v);
+                        .await
+                        .map_err(|e| eprintln!("{:#?}", e))
+                        .unwrap();
+                    eprintln!("Recieved {:#?}", message);
+                    let _ = handle_automation(app_clone.app_handle(), message).await;
                 }
             });
         }
@@ -158,7 +138,19 @@ pub async fn initiate_ipc(args: &Args, app: AppHandle) -> Result<()> {
             {
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
                     let mut client = named_pipe::ClientOptions::new().open(&socket_id)?;
-                    connect(args, &mut client).await?;
+                    client
+                        .write_all(&to_vec(&{
+                            if args.quit {
+                                Message::Quit
+                            } else if args.fetch {
+                                Message::FetchCache
+                            } else if args.update {
+                                Message::UpdateWallpaper
+                            } else {
+                                Message::Show
+                            }
+                        })?)
+                        .await?;
                     #[allow(unreachable_code)]
                     return Ok(exit(0));
                 }
@@ -170,10 +162,12 @@ pub async fn initiate_ipc(args: &Args, app: AppHandle) -> Result<()> {
                                 server.connect().await?;
                                 let mut buf = vec![];
                                 server.read_buf(&mut buf).await?;
-
                                 server = named_pipe::ServerOptions::new().create(&socket_id)?;
                                 let app = app.app_handle();
-                                tokio::spawn(async move { handle(app, from_slice(&buf)?).await });
+                                tokio::spawn(async move {
+                                    let message = from_slice::<IPCData<Vec<u8>>>(&buf).unwrap();
+                                    let _ = app.state::<Sender<IPCData<Vec<u8>>>>().send(message);
+                                });
                                 Ok::<(), io::Error>(())
                             }
                             .await
