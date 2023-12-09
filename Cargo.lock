@@ -3065,6 +3065,7 @@ dependencies = [
  "open",
  "rand 0.8.5",
  "reddw-source-plugin",
+ "reddw_ipc",
  "reqwest",
  "rfd",
  "rmp-futures",
@@ -3107,6 +3108,18 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "reddw_ipc"
+version = "0.2.0"
+dependencies = [
+ "hex",
+ "lazy_static",
+ "rmp-serde",
+ "serde",
+ "tokio",
+ "whoami",
 ]
 
 [[package]]

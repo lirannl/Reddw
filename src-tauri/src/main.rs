@@ -10,6 +10,7 @@ mod queue;
 mod source_host;
 mod tray;
 mod wallpaper_changer;
+mod ipc;
 use crate::{
     app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},
@@ -59,7 +60,7 @@ fn main() {
     tauri::Builder::default()
         .setup(move |app| {
             main_window_setup(app.app_handle())?;
-            block_on(automation_socket::participate(&args, app.app_handle()))?;
+            block_on(automation_socket::initiate_ipc(&args, app.app_handle()))?;
             if args.background {
                 app.get_window("main")
                     .ok_or(anyhow!("No main window"))
@@ -83,7 +84,7 @@ fn main() {
                     std::process::exit(1);
                 }
             }
-            block_on(source_host::host_plugins(app.handle()))?;
+            // block_on(source_host::host_plugins(app.handle()))?;
             Ok(())
         })
         .invoke_handler(generate_handler![

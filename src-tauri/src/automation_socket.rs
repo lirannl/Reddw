@@ -1,12 +1,16 @@
 use crate::{main_window_setup, wallpaper_changer::update_wallpaper};
 use anyhow::{anyhow, Result};
+use reddw_ipc::{IPCData, IPCMessage, SOCKET_PATH};
 use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 #[cfg(target_family = "unix")]
 use std::fs::remove_file;
 use std::{io::ErrorKind, process::exit};
 use tauri::{async_runtime::spawn, AppHandle, Manager};
-use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::{
+    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    sync::watch::{Receiver, Sender},
+};
 #[cfg(target_family = "windows")]
 use {std::io, tokio::net::windows::named_pipe};
 
@@ -75,32 +79,45 @@ pub async fn handle(app: AppHandle, message: Message) -> Result<()> {
     Ok(())
 }
 
-static SOCKET_ID: &str = include_str!("../../automation_socket.txt");
-
-pub async fn participate(args: &Args, app: AppHandle) -> Result<()> {
+pub async fn initiate_ipc(args: &Args, app: AppHandle) -> Result<()> {
     {
+        let (broadcaster, receiver) =
+            tokio::sync::watch::channel::<IPCData<Vec<u8>>>((IPCMessage::Init, Vec::new()));
+        app.manage(broadcaster);
+        app.manage(receiver);
         #[cfg(target_family = "unix")]
         {
-            let socket_path = format!(
-                "/tmp/reddw-{SOCKET_ID}-{}.sock",
-                hex::encode(whoami::username())
-            );
-            let mut listener = tokio::net::UnixListener::bind(socket_path.clone());
+            let mut listener = tokio::net::UnixListener::bind(SOCKET_PATH.as_path());
             if let Err(e) = &listener
                 && e.kind() == ErrorKind::AddrInUse
             {
-                let stream_result = tokio::net::UnixStream::connect(socket_path.clone()).await;
+                let stream_result = tokio::net::UnixStream::connect(SOCKET_PATH.as_path()).await;
                 if let Ok(mut stream) = stream_result {
-                    connect(args, &mut stream).await?;
+                    let writer = &mut stream;
+                    writer
+                        .write_all(&to_vec(&(
+                            IPCMessage::AutomationSocket,
+                            to_vec(&if args.quit {
+                                Message::Quit
+                            } else if args.fetch {
+                                Message::FetchCache
+                            } else if args.update {
+                                Message::UpdateWallpaper
+                            } else {
+                                Message::Show
+                            })?,
+                        ))?)
+                        .await?;
                     exit(0);
                 } else if let Err(e) = stream_result
                     && e.kind() == ErrorKind::ConnectionRefused
                 {
-                    remove_file(socket_path.clone())?;
-                    listener = tokio::net::UnixListener::bind(socket_path.clone());
+                    remove_file(SOCKET_PATH.as_path())?;
+                    listener = tokio::net::UnixListener::bind(SOCKET_PATH.as_path());
                 }
             }
             let listener = listener?;
+            let app_clone = app.app_handle();
             spawn(async move {
                 loop {
                     let (mut stream, _) = listener.accept().await.unwrap();
@@ -108,7 +125,27 @@ pub async fn participate(args: &Args, app: AppHandle) -> Result<()> {
                     stream.read_buf(&mut buf).await.unwrap();
 
                     let app = app.app_handle();
-                    tokio::spawn(async move { handle(app, from_slice(&buf).unwrap()).await });
+                    tokio::spawn(async move {
+                        let message = from_slice::<IPCData<Vec<u8>>>(&buf).unwrap();
+                        // let _ = handle(app.app_handle(), from_slice(&message.1).unwrap()).await;
+                        let _ = app.state::<Sender<IPCData<Vec<u8>>>>().send(message);
+                    });
+                }
+            });
+            spawn(async move {
+                loop {
+                    let mut receiver = app_clone
+                        .state::<Receiver<IPCData<Vec<u8>>>>()
+                        .inner()
+                        .clone();
+                    let v = receiver
+                        .wait_for(|m| match m.0 {
+                            IPCMessage::Init => false,
+                            _ => true,
+                        })
+                        .await.map(|v| v.clone());
+                    let _ = receiver.changed().await;
+                    eprintln!("Recieved {:#?}", v);
                 }
             });
         }
