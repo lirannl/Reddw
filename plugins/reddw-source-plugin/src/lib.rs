@@ -11,7 +11,7 @@ use std::{
 
 #[cfg(not(sqlx))]
 use chrono::NaiveDateTime;
-use rmp_serde::{encode::write, from_read, from_slice};
+use rmp_serde::{encode::write, from_read, from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 #[cfg(sqlx)]
 use sqlx::{types::chrono::NaiveDateTime, FromRow};
@@ -121,26 +121,18 @@ pub trait ReddwSource<Parameters: Debug + for<'a> Deserialize<'a> + Send> {
     {
         async {
             loop {
-                let status = write(
-                    &mut stdout(),
-                    &loop_iter::<Parameters, Self>()
-                        .await
-                        .unwrap_or_else(|err| SourcePluginResponse::Err(err.to_string())),
-                )
-                .map_err(|err| {
+                let response = loop_iter::<Parameters, Self>()
+                    .await
+                    .unwrap_or_else(|err| SourcePluginResponse::Err(err.to_string()));
+                write(&mut stdout(), &response).unwrap_or_else(|err| {
                     eprintln!("Couldn't send response: {err}");
-                    err
                 });
+                let status = stdout().flush();
                 if let Err(err) = status
-                    && let Some(err) = err.source()
-                    && let Some(err) = err.downcast_ref::<std::io::Error>()
                     && err.kind() == ErrorKind::BrokenPipe
                 {
                     exit(1);
                 }
-                stdout()
-                    .flush()
-                    .unwrap_or_else(|err| eprintln!("Couldn't flush: {err}"));
             }
         }
     }
