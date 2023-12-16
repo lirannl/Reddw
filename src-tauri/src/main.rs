@@ -83,7 +83,7 @@ fn main() {
                     std::process::exit(1);
                 }
             }
-            // block_on(source_host::host_plugins(app.handle()))?;
+            block_on(source_host::host_plugins(app.handle()))?;
             Ok(())
         })
         .invoke_handler(generate_handler![

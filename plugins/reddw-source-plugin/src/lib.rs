@@ -1,16 +1,17 @@
-#![feature(async_closure)]
+#![feature(async_closure, if_let_guard, never_type, let_chains)]
 
 use std::{
     collections::HashMap,
     error::Error,
     fmt::Debug,
     future::Future,
-    io::{stderr, stdin, stdout, Write},
+    io::{stdin, stdout, ErrorKind, Write},
+    process::exit,
 };
 
 #[cfg(not(sqlx))]
 use chrono::NaiveDateTime;
-use rmp_serde::{encode::write, from_read};
+use rmp_serde::{encode::write, from_read, from_slice};
 use serde::{Deserialize, Serialize};
 #[cfg(sqlx)]
 use sqlx::{types::chrono::NaiveDateTime, FromRow};
@@ -53,6 +54,7 @@ impl Wallpaper {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SourcePluginMessage {
+    InterfaceVersion,
     /// Gets the source plugin's name
     GetName,
     /// Gets the embedded static assets for the application
@@ -70,6 +72,8 @@ pub enum SourcePluginMessage {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SourcePluginResponse {
+    Err(String),
+    InterfaceVersion(String),
     /// Gets the source plugin's name
     GetName(String),
     /// Gets the embedded static assets for the application
@@ -85,7 +89,13 @@ pub enum SourcePluginResponse {
     GetInstances(Vec<String>),
 }
 
-pub trait ReddwSource<Parameters> {
+pub const INTERFACE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub trait ReddwSource<Parameters: Debug + for<'a> Deserialize<'a> + Send> {
+    /// Gets the plugin's interface version
+    fn interface_version() -> String {
+        INTERFACE_VERSION.to_string()
+    }
     /// Gets the source plugin's name
     fn get_name() -> Result<String, Box<dyn Error>>;
     /// Gets the embedded static assets for the application
@@ -96,7 +106,7 @@ pub trait ReddwSource<Parameters> {
     /// Create/modify an instance
     fn register_instance(
         id: String,
-        params: Vec<u8>,
+        params: Parameters,
     ) -> impl Future<Output = Result<(), Box<dyn Error>>> + Send;
     /// Remove an instance
     fn deregister_instance(id: String) -> impl Future<Output = Result<(), Box<dyn Error>>> + Send;
@@ -105,44 +115,66 @@ pub trait ReddwSource<Parameters> {
         id: String,
     ) -> impl Future<Output = Result<Vec<Wallpaper>, Box<dyn Error>>> + Send;
     fn get_instances() -> impl Future<Output = Result<Vec<String>, Box<dyn Error>>> + Send;
-    fn main_loop() -> impl Future<Output = Result<(), Box<dyn Error>>> + Send {
+    fn serve_plugin() -> impl Future<Output = !> + Send
+    where
+        Self: Sized,
+    {
         async {
-            let result: Result<SourcePluginResponse, Box<dyn Error>> =
-                match from_read::<_, SourcePluginMessage>(stdin())? {
-                    SourcePluginMessage::GetName => {
-                        Ok(SourcePluginResponse::GetName(Self::get_name()?))
-                    }
-                    SourcePluginMessage::GetAssets => {
-                        Ok(SourcePluginResponse::GetAssets(Self::get_assets()?))
-                    }
-                    SourcePluginMessage::InspectInstance(id) => Ok(
-                        SourcePluginResponse::InspectInstance(Self::inspect_instance(id).await?),
-                    ),
-                    SourcePluginMessage::RegisterInstance(id, params) => {
-                        Self::register_instance(id, params.try_into()?).await?;
-                        Ok(SourcePluginResponse::RegisterInstance)
-                    }
-                    SourcePluginMessage::DeregisterInstance(id) => {
-                        Self::deregister_instance(id).await?;
-                        Ok(SourcePluginResponse::DeregisterInstance)
-                    }
-                    SourcePluginMessage::GetWallpapers(id) => Ok(
-                        SourcePluginResponse::GetWallpapers(Self::get_wallpapers(id).await?),
-                    ),
-                    SourcePluginMessage::GetInstances => Ok(SourcePluginResponse::GetInstances(
-                        Self::get_instances().await?,
-                    )),
-                };
-            match result {
-                Ok(response) => {
-                    write(&mut stdout(), &response).unwrap_or_else(|err| eprintln!("{err}"))
+            loop {
+                let status = write(
+                    &mut stdout(),
+                    &loop_iter::<Parameters, Self>()
+                        .await
+                        .unwrap_or_else(|err| SourcePluginResponse::Err(err.to_string())),
+                )
+                .map_err(|err| {
+                    eprintln!("Couldn't send response: {err}");
+                    err
+                });
+                if let Err(err) = status
+                    && let Some(err) = err.source()
+                    && let Some(err) = err.downcast_ref::<std::io::Error>()
+                    && err.kind() == ErrorKind::BrokenPipe
+                {
+                    exit(1);
                 }
-                Err(error) => eprint!("{error}"),
+                stdout()
+                    .flush()
+                    .unwrap_or_else(|err| eprintln!("Couldn't flush: {err}"));
             }
-            eprint!("\n");
-            stdout().flush()?;
-            stderr().flush()?;
-            Ok(())
         }
+    }
+}
+
+async fn loop_iter<
+    Parameters: Debug + for<'a> Deserialize<'a> + Send,
+    Source: ReddwSource<Parameters>,
+>() -> Result<SourcePluginResponse, Box<dyn Error>> {
+    let received = from_read::<_, SourcePluginMessage>(stdin())?;
+    match received {
+        SourcePluginMessage::InterfaceVersion => Ok(SourcePluginResponse::InterfaceVersion(
+            Source::interface_version(),
+        )),
+        SourcePluginMessage::GetName => Ok(SourcePluginResponse::GetName(Source::get_name()?)),
+        SourcePluginMessage::GetAssets => {
+            Ok(SourcePluginResponse::GetAssets(Source::get_assets()?))
+        }
+        SourcePluginMessage::InspectInstance(id) => Ok(SourcePluginResponse::InspectInstance(
+            Source::inspect_instance(id).await?,
+        )),
+        SourcePluginMessage::RegisterInstance(id, params) => {
+            Source::register_instance(id, from_slice(&params)?).await?;
+            Ok(SourcePluginResponse::RegisterInstance)
+        }
+        SourcePluginMessage::DeregisterInstance(id) => {
+            Source::deregister_instance(id).await?;
+            Ok(SourcePluginResponse::DeregisterInstance)
+        }
+        SourcePluginMessage::GetWallpapers(id) => Ok(SourcePluginResponse::GetWallpapers(
+            Source::get_wallpapers(id).await?,
+        )),
+        SourcePluginMessage::GetInstances => Ok(SourcePluginResponse::GetInstances(
+            Source::get_instances().await?,
+        )),
     }
 }

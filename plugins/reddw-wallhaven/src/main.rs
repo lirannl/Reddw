@@ -60,13 +60,12 @@ impl ReddwSource<Parameters> for WallHavenSource {
         Ok(parameters)
     }
 
-    async fn register_instance(id: String, params: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    async fn register_instance(id: String, parameters: Parameters) -> Result<(), Box<dyn Error>> {
         if id.contains("_") {
             Err(anyhow!(
                 "Invalid instance ID. Instance IDs cannot contain underscores"
             ))?
         }
-        let parameters = params.try_into()?;
         let mut instances = (*INSTANCES).lock().await;
         instances.insert(id, parameters);
         Ok(())
@@ -134,7 +133,5 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() -> ! {
-    loop {
-        WallHavenSource::main_loop().await.unwrap_or_else(|_| {})
-    }
+    WallHavenSource::serve_plugin().await
 }

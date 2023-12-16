@@ -1,8 +1,7 @@
 import { For, createEffect, createResource, createSignal, on } from "solid-js";
-// import { useConfig } from "./context/config"
 import { AiOutlineMinus, AiOutlinePlus } from "solid-icons/ai"
-import { invoke } from "@tauri-apps/api";
 import { appConfig, updateAppConfig } from "./context/config";
+import { invoke } from "./overrides";
 
 export default () => {
     let sourceConfig: HTMLElement = undefined as any;
@@ -15,7 +14,8 @@ export default () => {
     // const [config, updateConfig] = useConfig();
     const loadPlugin = async (name: string) => {
         const configElement = document.createElement(`${name.toLowerCase()}-config`);
-        const files: Record<string, number[]> = await invoke("load_plugin_ui", { plugin: name });
+        const files = await invoke<Record<string, number[]>>("load_plugin_ui", { plugin: name });
+        if (!files) return;
         const bundledData = await Promise.all(Object.entries(files).map(async ([name, data]) => {
             if (name.endsWith(".js")) {
                 const asset = `data:text/javascript;charset=utf-8,${encodeURIComponent(String.fromCharCode(...data))}`;
@@ -34,7 +34,7 @@ export default () => {
         // sourceConfig.addEventListener("change", console.log);
         sourceConfig.addEventListener("input", e => {
             if (!(e instanceof CustomEvent)) return;
-            console.log(selectSource(), e.detail)
+            console.log(selectedSource(), e.detail)
         });
     };
     const removeSource = (source_instance: string) => () => {
@@ -61,7 +61,11 @@ export default () => {
                 <div class="collapse-content">
                     <For each={Object.keys(appConfig().sources)}>{source_instance => {
                         const [source, instance] = source_instance.split("_");
-                        return <div class="flex gap-1 items-center justify-between">
+                        return <div classList={{
+                            "flex": true, "gap-1": true,
+                            "items-center": true, "justify-between": true,
+                            "bg-secondary": [source, instance].equals(selectedSource() ?? [])
+                        }}>
                             <div class="btn" onClick={() => { selectSource([source, instance]); loadPlugin(source) }}>
                                 <div class="bg-neutral rounded-md px-1 text-xl">{source}</div>
                                 <div class="bg-neutral rounded-md px-1 text-xl">{instance}</div>
