@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 lazy_static = "1.4"
-reddw-source-plugin = { path = "../reddw-source-plugin" }
+reddw-source-plugin = { path = "../reddw-source-plugin", features = ["plugin"] }
 serde = { version = "1.0", features = ["derive"] }
 rmp-serde = "1.1"
 serde_json = "1.0"

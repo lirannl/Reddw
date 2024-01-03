@@ -61,7 +61,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
             Err(e) => {
                 let e = e as anyhow::Error;
                 if e.to_string().contains("No wallpapers") {
-                    plugin.get_wallpapers(instance.to_string()).await?
+                    plugin.get_wallpapers(instance.to_string()).await.map_err(|err| anyhow!("{err:#?}"))?
                 } else {
                     return Err(e);
                 };

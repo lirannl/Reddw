@@ -77,7 +77,7 @@ pub async fn cache_queue(app: tauri::AppHandle) -> Result<usize, String> {
                     }
                     Some(instance)
                 }) {
-                    wallpapers.extend(plugin.get_wallpapers(instance.to_string()).await?);
+                    wallpapers.extend(plugin.get_wallpapers(instance.to_string()).await.map_err(|err| anyhow!("{err:#?}"))?);
                 }
                 Ok(wallpapers)
             }

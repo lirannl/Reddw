@@ -8,8 +8,8 @@ use std::fs::remove_file;
 use std::{io::ErrorKind, process::exit};
 use tauri::{async_runtime::spawn, AppHandle, Manager};
 use tokio::{
-    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt},
-    sync::watch::{Receiver, Sender},
+    io::{AsyncReadExt, AsyncWriteExt},
+    sync::watch::Sender,
 };
 #[cfg(target_family = "windows")]
 use {std::io, tokio::net::windows::named_pipe};

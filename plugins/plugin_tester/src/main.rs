@@ -1,5 +1,5 @@
 #![feature(let_chains)]
-use reddw_source_plugin::{SourcePluginMessage, SourcePluginResponse};
+use reddw_source_plugin::{ReddwSourceHandle, ReddwSourceMessage, ReddwSourceResponse};
 use rmp_serde::{from_slice, to_vec};
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
@@ -18,8 +18,8 @@ use tokio::{
 async fn message(
     stdin: &mut ChildStdin,
     stdout: &mut ChildStdout,
-    message: SourcePluginMessage,
-) -> Result<SourcePluginResponse, Box<dyn Error>> {
+    message: ReddwSourceMessage<io_plugin::GenericValue>,
+) -> Result<ReddwSourceResponse<io_plugin::GenericValue>, Box<dyn Error>> {
     stdin.write(&(to_vec(&message)?)).await?;
     const BUF_SIZE: usize = 4000;
     let mut vec = Vec::<u8>::new();
@@ -36,58 +36,47 @@ async fn message(
 #[tokio::main]
 async fn main() {
     let plugin = canonicalize(PathBuf::from(args().nth(1).unwrap())).unwrap();
-    #[cfg(target_family = "unix")]
-    {
-        let mode = metadata(&plugin)
-            .and_then(|m| Ok(m.permissions().mode()))
-            .unwrap();
-        let mode = format!("{:o}", mode);
-        let mode = mode
-            .split_at(3)
-            .1
-            .chars()
-            .filter_map(|c| u8::try_from(c).ok())
-            .collect::<Vec<_>>();
-        if mode.iter().all(|byte| byte % 2 == 0) {
-            panic!(
-                "Plugin {:?} is not marked as executable. Detected mode: {:?}",
-                plugin, mode
-            )
-        }
-    }
-    let mut child = Command::new(plugin)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        // .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-
-    let mut stdin = child.stdin.take().unwrap();
-    let mut stdout = child.stdout.take().unwrap();
-    // let mut stderr = child.stderr.take().unwrap();
-
-    let response = message(&mut stdin, &mut stdout, SourcePluginMessage::GetName).await;
-    println!("{:#?}", response);
-    message(
-        &mut stdin,
-        &mut stdout,
-        SourcePluginMessage::RegisterInstance("".to_string(), Vec::new()),
-    )
-    .await
-    .unwrap();
-    let response = message(
-        &mut stdin,
-        &mut stdout,
-        SourcePluginMessage::GetWallpapers("".to_string()),
-    )
-    .await;
-    println!("{:#?}", response);
-    // let err = {
-    //     let mut err = Vec::<u8>::new();
-    //     stderr.read(&mut err).await.unwrap();
-    //     let str = from_utf8(&err).unwrap();
-    //     str.to_owned()
-    // };
-    // eprintln!("Plugin stderr: {:#?}", err);
-    child.kill().await.unwrap();
+    // #[cfg(target_family = "unix")]
+    // {
+    //     let mode = metadata(&plugin)
+    //         .and_then(|m| Ok(m.permissions().mode()))
+    //         .unwrap();
+    //     let mode = format!("{:o}", mode);
+    //     let mode = mode
+    //         .split_at(3)
+    //         .1
+    //         .chars()
+    //         .filter_map(|c| u8::try_from(c).ok())
+    //         .collect::<Vec<_>>();
+    //     if mode.iter().all(|byte| byte % 2 == 0) {
+    //         panic!(
+    //             "Plugin {:?} is not marked as executable. Detected mode: {:?}",
+    //             plugin, mode
+    //         )
+    //     }
+    // }
+    // let mut child = Command::new(plugin)
+    //     .stdin(Stdio::piped())
+    //     .stdout(Stdio::piped())
+    //     .spawn()
+    //     .unwrap();
+    // let handle = ReddwSourceHandle::new(child).await?;
+    // handle.register_instance("".to_string(), io_plugin::GenericValue)
+    // .await
+    // .unwrap();
+    // let response = message(
+    //     &mut stdin,
+    //     &mut stdout,
+    //     SourcePluginMessage::GetWallpapers("".to_string()),
+    // )
+    // .await;
+    // println!("{:#?}", response);
+    // // let err = {
+    // //     let mut err = Vec::<u8>::new();
+    // //     stderr.read(&mut err).await.unwrap();
+    // //     let str = from_utf8(&err).unwrap();
+    // //     str.to_owned()
+    // // };
+    // // eprintln!("Plugin stderr: {:#?}", err);
+    // child.kill().await.unwrap();
 }

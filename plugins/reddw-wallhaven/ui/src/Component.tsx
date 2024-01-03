@@ -9,7 +9,7 @@ export type ComponentEventHandler = (event: CustomEvent<PluginConfig>) => (unkno
 
 function Component(props: { value: PluginConfig }) {
     let inputTriggered = false
-    let componentRef: HTMLFormElement;
+    let componentRef: HTMLFormElement = null as any;
     const [config, update] = createSignal<PluginConfig>(props.value ?? { searchTerms: [] });
     const delimiter_pressed: JSX.EventHandlerUnion<HTMLDivElement, KeyboardEvent> = (event) => {
         if (["Enter", ","].includes(event.key)) {

@@ -16,6 +16,8 @@ export default () => {
         const configElement = document.createElement(`${name.toLowerCase()}-config`);
         const files = await invoke<Record<string, number[]>>("load_plugin_ui", { plugin: name });
         if (!files) return;
+        const plugin_instance = selectedSource()?.join("_");
+        if (plugin_instance && appConfig().sources[plugin_instance]) configElement.setAttribute("value", JSON.stringify(appConfig().sources[plugin_instance]));
         const bundledData = await Promise.all(Object.entries(files).map(async ([name, data]) => {
             if (name.endsWith(".js")) {
                 const asset = `data:text/javascript;charset=utf-8,${encodeURIComponent(String.fromCharCode(...data))}`;
@@ -32,9 +34,10 @@ export default () => {
                 sourceConfig.shadowRoot?.adoptedStyleSheets.push(item);
         });
         // sourceConfig.addEventListener("change", console.log);
-        sourceConfig.addEventListener("input", e => {
-            if (!(e instanceof CustomEvent)) return;
-            console.log(selectedSource(), e.detail)
+        sourceConfig.addEventListener("input", async e => {
+            if (!(e instanceof CustomEvent) || !plugin_instance) return;
+            const currentConfig = appConfig();
+            await invoke("set_config", { appConfig: { ...currentConfig, sources: { ...currentConfig.sources, [plugin_instance]: e.detail } } })
         });
     };
     const removeSource = (source_instance: string) => () => {

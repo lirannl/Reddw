@@ -1,14 +1,12 @@
 #![feature(async_closure, let_chains)]
 use anyhow::{anyhow, Result};
-use lazy_static::lazy_static;
-use reddw_source_plugin::{ReddwSource, Wallpaper};
+use reddw_source_plugin::{ReddwSourceTrait, Wallpaper, INTERFACE_VERSION};
 use reqwest::{Client, Method, Url};
 use response_data::BaseResponse;
 use rmp_serde::to_vec;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, error::Error};
-use tokio::sync::Mutex;
 mod response_data;
 
 #[derive(RustEmbed)]
@@ -16,6 +14,7 @@ mod response_data;
 struct StaticAssets;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct Parameters {
     search_terms: Vec<String>,
 }
@@ -34,13 +33,16 @@ impl TryInto<Vec<u8>> for Parameters {
     }
 }
 
-struct WallHavenSource {}
-impl ReddwSource<Parameters> for WallHavenSource {
-    fn get_name() -> Result<String, Box<dyn Error>> {
+struct WallHavenSource {
+    instances: HashMap<String, Parameters>,
+}
+
+impl ReddwSourceTrait<Parameters> for WallHavenSource {
+    async fn get_name(&mut self) -> Result<String, Box<dyn Error>> {
         Ok(NAME.to_owned())
     }
 
-    fn get_assets() -> Result<HashMap<String, Vec<u8>>, Box<dyn Error>> {
+    async fn get_assets(&mut self) -> Result<HashMap<String, Vec<u8>>, Box<dyn Error>> {
         Ok(StaticAssets::iter()
             .filter_map(|path| {
                 let data = StaticAssets::get(&path)?.data.into_owned();
@@ -49,10 +51,9 @@ impl ReddwSource<Parameters> for WallHavenSource {
             .collect())
     }
 
-    async fn inspect_instance(id: String) -> Result<Vec<u8>, Box<dyn Error>> {
-        let parameters = (*INSTANCES)
-            .lock()
-            .await
+    async fn inspect_instance(&mut self, id: String) -> Result<Parameters, Box<dyn Error>> {
+        let parameters = self
+            .instances
             .get(&id)
             .ok_or(anyhow!("No registered instance under the name \"{id}\""))?
             .clone()
@@ -60,29 +61,30 @@ impl ReddwSource<Parameters> for WallHavenSource {
         Ok(parameters)
     }
 
-    async fn register_instance(id: String, parameters: Parameters) -> Result<(), Box<dyn Error>> {
+    async fn register_instance(
+        &mut self,
+        id: String,
+        parameters: Parameters,
+    ) -> Result<(), Box<dyn Error>> {
         if id.contains("_") {
             Err(anyhow!(
                 "Invalid instance ID. Instance IDs cannot contain underscores"
             ))?
         }
-        let mut instances = (*INSTANCES).lock().await;
-        instances.insert(id, parameters);
+        self.instances.insert(id, parameters);
         Ok(())
     }
 
-    async fn deregister_instance(id: String) -> Result<(), Box<dyn Error>> {
-        let mut instances = (*INSTANCES).lock().await;
-        instances
+    async fn deregister_instance(&mut self, id: String) -> Result<(), Box<dyn Error>> {
+        self.instances
             .remove(&id)
             .ok_or(anyhow!("No registered instance under the name \"{id}\""))?;
         Ok(())
     }
 
-    async fn get_wallpapers(id: String) -> Result<Vec<Wallpaper>, Box<dyn Error>> {
+    async fn get_wallpapers(&mut self, id: String) -> Result<Vec<Wallpaper>, Box<dyn Error>> {
         let _parameters = {
-            let instances = (*INSTANCES).lock().await;
-            instances
+            self.instances
                 .get(&id)
                 .ok_or(anyhow!("No registered instance under the name \"{id}\""))?
                 .clone()
@@ -115,23 +117,32 @@ impl ReddwSource<Parameters> for WallHavenSource {
             .collect())
     }
 
-    async fn get_instances() -> Result<Vec<String>, Box<dyn Error>> {
-        let instances = (*INSTANCES).lock().await;
-        Ok(instances
+    async fn get_instances(&mut self) -> Result<Vec<String>, Box<dyn Error>> {
+        Ok(self
+            .instances
             .keys()
             .clone()
             .into_iter()
             .map(String::to_owned)
             .collect())
     }
+
+    async fn interface_version(
+        &mut self
+    ) -> Result<String, Box<dyn std::error::Error>>
+    where
+        Self: Sized,
+    {
+        Ok(INTERFACE_VERSION.to_string())
+    }
 }
 static NAME: &str = "WallHaven";
 
-lazy_static! {
-    static ref INSTANCES: Mutex<HashMap<String, Parameters>> = Mutex::new(HashMap::new());
-}
-
 #[tokio::main]
-async fn main() -> ! {
-    WallHavenSource::serve_plugin().await
+async fn main() {
+    WallHavenSource {
+        instances: HashMap::new(),
+    }
+    .main_loop()
+    .await
 }
