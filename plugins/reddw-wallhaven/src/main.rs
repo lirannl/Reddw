@@ -1,6 +1,6 @@
 #![feature(async_closure, let_chains)]
 use anyhow::{anyhow, Result};
-use reddw_source_plugin::{ReddwSourceTrait, Wallpaper, INTERFACE_VERSION};
+use reddw_source_plugin::{ReddwSourceTrait, Wallpaper};
 use reqwest::{Client, Method, Url};
 use response_data::BaseResponse;
 use rmp_serde::to_vec;
@@ -16,7 +16,7 @@ struct StaticAssets;
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Parameters {
-    search_terms: Vec<String>,
+    tags: Vec<String>,
 }
 impl TryFrom<Vec<u8>> for Parameters {
     type Error = anyhow::Error;
@@ -83,15 +83,16 @@ impl ReddwSourceTrait<Parameters> for WallHavenSource {
     }
 
     async fn get_wallpapers(&mut self, id: String) -> Result<Vec<Wallpaper>, Box<dyn Error>> {
-        let _parameters = {
+        let parameters = {
             self.instances
                 .get(&id)
                 .ok_or(anyhow!("No registered instance under the name \"{id}\""))?
                 .clone()
         };
+        let terms = parameters.tags.join("+");
         let request = reqwest::Request::new(
             Method::GET,
-            Url::parse("https://wallhaven.cc/api/v1/search")?,
+            Url::parse(&format!("https://wallhaven.cc/api/v1/search?q={terms}"))?,
         );
         let response = Client::new().execute(request).await?;
         if !response.status().is_success() {
@@ -101,7 +102,7 @@ impl ReddwSourceTrait<Parameters> for WallHavenSource {
             ))?;
         }
         let response: BaseResponse = serde_json::from_slice(&response.bytes().await?)?;
-        Ok(response
+        let wallpapers = response
             .data
             .into_iter()
             .map(|datum| {
@@ -113,8 +114,8 @@ impl ReddwSourceTrait<Parameters> for WallHavenSource {
                     format!("{NAME}_{id}"),
                 )
             })
-            .take(2)
-            .collect())
+            .collect();
+        Ok(wallpapers)
     }
 
     async fn get_instances(&mut self) -> Result<Vec<String>, Box<dyn Error>> {
@@ -125,15 +126,6 @@ impl ReddwSourceTrait<Parameters> for WallHavenSource {
             .into_iter()
             .map(String::to_owned)
             .collect())
-    }
-
-    async fn interface_version(
-        &mut self
-    ) -> Result<String, Box<dyn std::error::Error>>
-    where
-        Self: Sized,
-    {
-        Ok(INTERFACE_VERSION.to_string())
     }
 }
 static NAME: &str = "WallHaven";

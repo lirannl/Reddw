@@ -64,7 +64,6 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
                 Command::new(plugin.path())
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
-                    // .stderr(Stdio::piped())
                     .spawn()?,
             )
             .await

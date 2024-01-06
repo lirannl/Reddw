@@ -7,18 +7,13 @@ repository.workspace = true
 edition.workspace = true
 description = "A wallpaper changer"
 default-run = "reddw"
-rust-version = "1.59"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+rust-version.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "1.2.0", features = [] }
 
 [dependencies]
-reddw-source-plugin = { path = "../plugins/reddw-source-plugin", default-features = false, features = [
-    "sqlx",
-    "host",
-] }
+reddw-source-plugin = { path = "../plugins/reddw-source-plugin", default-features = false, features = ["host"] }
 reddw_ipc = { path = "../reddw_ipc" }
 serde_json = "1.0"
 sqlx = { version = "^0.7", features = [

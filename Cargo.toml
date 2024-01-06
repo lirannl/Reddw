@@ -5,6 +5,7 @@ package.license = "GPL-3.0-only"
 package.authors = ["Liran Piade"]
 package.repository = "https://github.com/lirannl/reddw"
 package.homepage = "https://github.com/lirannl/reddw"
+package.rust-version = "1.59"
 
 members = [ "src-tauri", "plugins/reddw-source-plugin", "plugins/reddw-wallhaven" , "plugins/plugin_tester", "reddw_ipc"]
 default-members = [ "src-tauri" ]

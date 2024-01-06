@@ -1,4 +1,5 @@
 use crate::app_handle_ext::AppHandleExt;
+use crate::log::LogLevel;
 use crate::queue::trim_queue;
 use crate::source_host::Plugins;
 use anyhow::{anyhow, Result};
@@ -9,7 +10,7 @@ use mime_guess::Mime;
 use rand::seq::SliceRandom;
 use reddw_source_plugin::Wallpaper;
 use sha2::{Digest, Sha256};
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Executor};
 use std::fmt::Display;
 use std::fs::{self, read_dir as read_dir_sync};
 use std::path::PathBuf;
@@ -60,11 +61,32 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
             Ok(wallpaper) => Ok::<Wallpaper, anyhow::Error>(wallpaper),
             Err(e) => {
                 let e = e as anyhow::Error;
-                if e.to_string().contains("No wallpapers") {
-                    plugin.get_wallpapers(instance.to_string()).await.map_err(|err| anyhow!("{err:#?}"))?
+                let wallpapers = if e.to_string().contains("No wallpapers") {
+                    plugin
+                        .get_wallpapers(instance.to_string())
+                        .await
+                        .map_err(|err| anyhow!("{err:#?}"))?
                 } else {
                     return Err(e);
                 };
+                let db = app_handle.db().await;
+                app_handle.log(&format!("Got {} wallpapers", wallpapers.len()), LogLevel::Debug);
+                for wallpaper in wallpapers {
+                    let name = wallpaper.name.unwrap_or_default();
+                    db.execute(
+                    query!(
+                        "---sql
+                        insert into queue (id, name, data_url, info_url, date, source, was_set) values 
+                        ($1, $2, $3, $4, $5, $6, $7)",
+                        wallpaper.id,
+                        name,
+                        wallpaper.data_url,
+                        wallpaper.info_url,
+                        wallpaper.date,
+                        wallpaper.source,
+                        wallpaper.was_set,
+                    )).await?;
+                }
                 let wallpaper = get_wp().await?;
                 Ok(wallpaper)
             }
@@ -115,7 +137,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
         .tray_handle()
         .get_item("open_info")
         .set_title(wallpaper.name.as_deref().unwrap_or("Untitled"))?;
-    eprintln!("New wallpaper: {:#?}", wallpaper);
+    app_handle.log(&format!("New wallpaper: {}", wallpaper.id), LogLevel::Info);
     Ok(())
 }
 

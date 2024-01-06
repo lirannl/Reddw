@@ -1,20 +1,20 @@
 #![feature(async_closure, if_let_guard, never_type, let_chains)]
 
-use std::{collections::HashMap, fmt::Debug};
-
-#[cfg(not(sqlx))]
+#[cfg(not(feature = "host"))]
 use chrono::NaiveDateTime;
 use io_plugin::io_plugin;
 use io_plugin::{Deserialise, Serialise};
 use serde::{Deserialize, Serialize};
-#[cfg(plugin)]
-use std::error::Error;
-#[cfg(sqlx)]
+#[cfg(feature = "host")]
 use sqlx::{types::chrono::NaiveDateTime, FromRow};
+#[cfg(feature = "plugin")]
+use std::error::Error;
+use std::{collections::HashMap, fmt::Debug};
 use ts_rs::TS;
 
 #[io_plugin(handle = "host", plugin_trait = "plugin")]
 pub enum ReddwSource<Parameters: Serialise + Deserialise> {
+    #[implementation(get_version)]
     InterfaceVersion(String),
     /// Gets the source plugin's name
     GetName(String),
@@ -32,7 +32,7 @@ pub enum ReddwSource<Parameters: Serialise + Deserialise> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
-#[cfg_attr(sqlx, derive(FromRow))]
+#[cfg_attr(feature = "host", derive(FromRow))]
 #[ts(export_to = "../../src-tauri/bindings/")]
 #[ts(export)]
 pub struct Wallpaper {
@@ -59,11 +59,18 @@ impl Wallpaper {
             name,
             data_url,
             info_url,
-            date: NaiveDateTime::default(),
+            date: chrono::Utc::now().naive_utc(),
             was_set: false,
             source,
         }
     }
 }
 
-pub const INTERFACE_VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(feature = "plugin")]
+const INTERFACE_VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(feature = "plugin")]
+async fn get_version<Parameters: Serialise + Deserialise, Plugin: ReddwSourceTrait<Parameters>>(
+    _plugin: &mut Plugin,
+) -> Result<String, Box<dyn Error>> {
+    Ok(INTERFACE_VERSION.to_string())
+}

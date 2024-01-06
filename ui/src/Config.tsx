@@ -6,11 +6,17 @@ import { invoke } from "./overrides";
 export default () => {
     let sourceConfig: HTMLElement = undefined as any;
     let propagate_update = false;
-    createEffect(on(appConfig, (appConfig) => { if (propagate_update) { propagate_update = false; console.log(appConfig); } }));
+    const [selectedSource, selectSource] = createSignal<[string, string] | undefined>();
+    createEffect(on(appConfig, (appConfig) => {
+        if (propagate_update) {
+            propagate_update = false;
+        }
+        const plugin_instance = selectedSource()?.join("_");
+        if (plugin_instance) sourceConfig.setAttribute("value", JSON.stringify(appConfig.sources[plugin_instance]));
+    }));
     const [source_plugins, /*{ mutate, refetch }*/] = createResource(() => invoke<string[]>("query_available_source_plugins"));
     const [newSource, setNewSource] = createSignal<string | undefined>();
     const [newInstance, setNewInstance] = createSignal("");
-    const [selectedSource, selectSource] = createSignal<[string, string] | undefined>();
     // const [config, updateConfig] = useConfig();
     const loadPlugin = async (name: string) => {
         const configElement = document.createElement(`${name.toLowerCase()}-config`);
@@ -40,6 +46,7 @@ export default () => {
             await invoke("set_config", { appConfig: { ...currentConfig, sources: { ...currentConfig.sources, [plugin_instance]: e.detail } } })
         });
     };
+
     const removeSource = (source_instance: string) => () => {
         propagate_update = true;
         updateAppConfig(prev => ({
@@ -47,13 +54,15 @@ export default () => {
                 Object.entries(prev.sources).filter(([k, _]) => k != source_instance)
             )
         }));
-    }
+    };
+
     const addSource = () => {
         const newSourceValue = newSource();
         updateAppConfig(prev => ({ ...prev, sources: Object.fromEntries([...Object.entries(prev.sources), [`${newSourceValue}_${newInstance()}`, {}]]) }));
         setNewSource(); setNewInstance("");
         if (newSourceValue) loadPlugin(newSourceValue);
-    }
+    };
+
     return <div class="card">
         <form class="card-body" onSubmit={e => { e.preventDefault() }}>
             <div class="collapse bg-base-200">
@@ -95,5 +104,5 @@ export default () => {
                 </div>
             </div>
         </form>
-    </div>
-}
+    </div>;
+};
