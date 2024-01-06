@@ -7,39 +7,52 @@ repository.workspace = true
 edition.workspace = true
 description = "A wallpaper changer"
 default-run = "reddw"
-rust-version = "1.59"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+rust-version.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "1.2.0", features = [] }
 
 [dependencies]
+reddw-source-plugin = { path = "../plugins/reddw-source-plugin", default-features = false, features = ["host"] }
+reddw_ipc = { path = "../reddw_ipc" }
 serde_json = "1.0"
-sqlx = { version = "^0.7", features = ["sqlite", "runtime-tokio-native-tls", "chrono"] }
+sqlx = { version = "^0.7", features = [
+    "sqlite",
+    "runtime-tokio-native-tls",
+    "chrono",
+] }
 tauri = { version = "1.2.0", features = ["system-tray"] }
-reqwest = { version = "0.11.13", features= ["serde_json"] }
+reqwest = { version = "0.11.13", features = ["serde_json"] }
 wallpaper = { version = "3.2.0", features = ["reqwest"] }
-notify = { version ="5.0.0", features = ["serde"] }
-tokio = { version ="1.22.0", features = ["time", "rt", "macros"] }
+notify = { version = "5.0.0", features = ["serde"] }
+tokio = { version = "1.22.0", features = [
+    "time",
+    "rt",
+    "macros",
+    "process",
+    "sync",
+] }
 serde = { version = "1.0", features = ["derive"] }
 window-vibrancy = "0.3.1"
 mime_guess = "2.0.4"
-anyhow = "1.0.66"
+anyhow = "1.0"
 ts-rs = "6.2"
 rand = "0.8.5"
 open = "3.2.0"
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10.6"
 data-encoding = "2.3.3"
-rmp-serde = "1.1.1"
+rmp-serde = "1.1"
 rfd = "0.10"
 clap = { version = "4.2.1", features = ["derive"] }
 whoami = "1.4.0"
 hex = "0.4.3"
-lazy_static = "1.4.0"
+lazy_static = "1.4"
 base64 = "0.21.0"
-reddw-source-plugin = { path = "../plugins/reddw-source-plugin" }
+rmp-futures = "0.3.2"
+futures = "0.3.29"
+winproc = "0.6.4"
+nix = { version = "0.27.1", features = ["signal"] }
 
 [features]
 # by default Tauri runs in production mode

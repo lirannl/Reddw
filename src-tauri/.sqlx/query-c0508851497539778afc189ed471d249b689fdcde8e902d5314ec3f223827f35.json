@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "---sql\n                            select * from queue \n                            where was_set = 1\n                            order by date desc",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "data_url",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "info_url",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "date",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "source",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "was_set",
+        "ordinal": 6,
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c0508851497539778afc189ed471d249b689fdcde8e902d5314ec3f223827f35"
+}

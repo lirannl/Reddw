@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "select id from queue",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c04b0690f3f2fab23a95034f4330098bdf3b333474156c536da579e28eb31764"
+}

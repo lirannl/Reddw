@@ -1,22 +1,19 @@
 #![windows_subsystem = "windows"]
 #![allow(incomplete_features)]
-#![feature(
-    async_closure,
-    absolute_path,
-    let_chains,
-    if_let_guard
-)]
+#![feature(async_closure, absolute_path, let_chains, if_let_guard)]
 
 mod app_config;
 mod app_handle_ext;
 mod automation_socket;
+mod log;
 mod queue;
-mod sources;
+mod source_host;
 mod tray;
 mod wallpaper_changer;
 use crate::{
     app_config::{get_config, select_folder, set_config},
     queue::{cache_queue, get_queue},
+    source_host::{load_plugin_ui, query_available_source_plugins},
     wallpaper_changer::{get_wallpaper, set_wallpaper, update_wallpaper},
 };
 use anyhow::{anyhow, Result};
@@ -62,7 +59,7 @@ fn main() {
     tauri::Builder::default()
         .setup(move |app| {
             main_window_setup(app.app_handle())?;
-            block_on(automation_socket::participate(&args, app.app_handle()))?;
+            block_on(automation_socket::initiate_ipc(&args, app.app_handle()))?;
             if args.background {
                 app.get_window("main")
                     .ok_or(anyhow!("No main window"))
@@ -86,12 +83,15 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            block_on(source_host::host_plugins(app.handle()))?;
             Ok(())
         })
         .invoke_handler(generate_handler![
             get_config,
             set_config,
             update_wallpaper,
+            query_available_source_plugins,
+            load_plugin_ui,
             cache_queue,
             get_queue,
             select_folder,

@@ -1,7 +1,7 @@
-use crate::app_config::Source;
 use crate::app_handle_ext::AppHandleExt;
+use crate::log::LogLevel;
 use crate::queue::trim_queue;
-use crate::sources::reddit::get_from_subreddit;
+use crate::source_host::Plugins;
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine};
 use data_encoding::BASE32;
@@ -10,7 +10,7 @@ use mime_guess::Mime;
 use rand::seq::SliceRandom;
 use reddw_source_plugin::Wallpaper;
 use sha2::{Digest, Sha256};
-use sqlx::{query, query_as};
+use sqlx::{query, query_as, Executor};
 use std::fmt::Display;
 use std::fs::{self, read_dir as read_dir_sync};
 use std::path::PathBuf;
@@ -29,12 +29,12 @@ pub fn hash_url(this: &(impl Display + ?Sized)) -> String {
 
 async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
     let config = app_handle.get_config().await;
-    let source = config
-        .sources
+    let sources = &config.sources.iter().collect::<Vec<_>>();
+    let (key, _) = sources
         .choose(&mut rand::thread_rng())
         .ok_or(anyhow!("No sources"))?;
-
-    let source_str = serde_json::to_string(source)?;
+    let (plugin_name, instance) = key.split_once("_").ok_or(anyhow!("Invalid sources key"))?;
+    let source_str = format!("{key}");
     let app_handle_clone = app_handle.clone();
     let get_wp = async || {
         query_as!(
@@ -51,31 +51,58 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
     };
 
     let wp = get_wp().await;
-    let app_handle_clone = app_handle.clone();
-
-    let wallpaper = match wp {
-        Ok(wallpaper) => Ok::<Wallpaper, anyhow::Error>(wallpaper),
-        Err(e) => {
-            let e = e as anyhow::Error;
-            if e.to_string().contains("No wallpapers") {
-                match source {
-                    Source::Subreddit(sub) => get_from_subreddit(sub, &app_handle_clone).await?,
+    let wallpaper = {
+        let plugins = app_handle.state::<Plugins>();
+        let mut plugins = plugins.lock().await;
+        let plugin = plugins
+            .get_mut(plugin_name)
+            .ok_or(anyhow!("Plugin {plugin_name} not found"))?;
+        match wp {
+            Ok(wallpaper) => Ok::<Wallpaper, anyhow::Error>(wallpaper),
+            Err(e) => {
+                let e = e as anyhow::Error;
+                let wallpapers = if e.to_string().contains("No wallpapers") {
+                    plugin
+                        .get_wallpapers(instance.to_string())
+                        .await
+                        .map_err(|err| anyhow!("{err:#?}"))?
+                } else {
+                    return Err(e);
+                };
+                let db = app_handle.db().await;
+                app_handle.log(&format!("Got {} wallpapers", wallpapers.len()), LogLevel::Debug);
+                for wallpaper in wallpapers {
+                    let name = wallpaper.name.unwrap_or_default();
+                    db.execute(
+                    query!(
+                        "---sql
+                        insert into queue (id, name, data_url, info_url, date, source, was_set) values 
+                        ($1, $2, $3, $4, $5, $6, $7)",
+                        wallpaper.id,
+                        name,
+                        wallpaper.data_url,
+                        wallpaper.info_url,
+                        wallpaper.date,
+                        wallpaper.source,
+                        wallpaper.was_set,
+                    )).await?;
                 }
-            } else {
-                return Err(e);
-            };
-            let wallpaper = get_wp().await?;
-            Ok(wallpaper)
+                let wallpaper = get_wp().await?;
+                Ok(wallpaper)
+            }
         }
     }?;
     trim_queue(&app_handle).await?;
     let cache_dir = &app_handle.get_config().await.cache_dir;
     let cache_dir_clone = cache_dir.clone();
     let downloaded_file = fs::read_dir(cache_dir)?.find_map(|e| {
-        if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok() &&
-             hash_url(&name) == wallpaper.id
-        {Some(name)}
-        else {None}
+        if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok()
+            && hash_url(&name) == wallpaper.id
+        {
+            Some(name)
+        } else {
+            None
+        }
     });
 
     let wallpaper_path = if let Some(path) = downloaded_file {
@@ -109,8 +136,8 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
     app_handle
         .tray_handle()
         .get_item("open_info")
-        .set_title(wallpaper.name.as_str())?;
-    eprintln!("New wallpaper: {:#?}", wallpaper);
+        .set_title(wallpaper.name.as_deref().unwrap_or("Untitled"))?;
+    app_handle.log(&format!("New wallpaper: {}", wallpaper.id), LogLevel::Info);
     Ok(())
 }
 
@@ -214,10 +241,13 @@ pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Resul
         let cache_dir = &app_handle.get_config().await.cache_dir;
         let cache_dir_clone = cache_dir.clone();
         let downloaded_file = fs::read_dir(cache_dir)?.find_map(|e| {
-            if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok() &&
-                     hash_url(&name) == wallpaper.id
-                {Some(name)}
-                else {None}
+            if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok()
+                && hash_url(&name) == wallpaper.id
+            {
+                Some(name)
+            } else {
+                None
+            }
         });
 
         let wallpaper_path = if let Some(path) = downloaded_file {
@@ -249,7 +279,7 @@ pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Resul
         app_handle
             .tray_handle()
             .get_item("open_info")
-            .set_title(wallpaper.name.as_str())?;
+            .set_title(wallpaper.name.as_deref().unwrap_or("Untitled"))?;
         app_handle.emit_all("wallpaper_updated", wallpaper.clone())?;
         eprintln!("New wallpaper: {:#?}", wallpaper);
         Ok(())
@@ -263,10 +293,14 @@ pub async fn get_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Resul
     (async move || -> Result<String> {
         let cache_dir = &app_handle.get_config().await.cache_dir;
         let file = read_dir_sync(cache_dir)?.find_map(|e| {
-            if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok() && 
-            name != "" && name.starts_with(&wallpaper.id)
-                {Some(e.as_ref().ok()?.path())}
-                else {None}
+            if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok()
+                && name != ""
+                && name.starts_with(&wallpaper.id)
+            {
+                Some(e.as_ref().ok()?.path())
+            } else {
+                None
+            }
         });
         let data = if let Some(file) = file {
             read(file).await?

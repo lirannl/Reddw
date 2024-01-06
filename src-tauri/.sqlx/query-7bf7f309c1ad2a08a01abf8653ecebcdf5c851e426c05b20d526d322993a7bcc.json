@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "---sql\n        delete from queue \n        where id in \n        (select id from queue \n            where was_set = 1 \n            order by date\n            limit -1 offset ?)\n        ;\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "7bf7f309c1ad2a08a01abf8653ecebcdf5c851e426c05b20d526d322993a7bcc"
+}
