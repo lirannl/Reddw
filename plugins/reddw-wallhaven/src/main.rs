@@ -1,4 +1,5 @@
 #![feature(async_closure, let_chains)]
+#![windows_subsystem = "windows"]
 use anyhow::{anyhow, Result};
 use reddw_source_plugin::{ReddwSourceTrait, Wallpaper};
 use reqwest::{Client, Method, Url};

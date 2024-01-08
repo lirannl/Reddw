@@ -25,6 +25,11 @@ lazy_static! {
     .into();
 }
 
+#[cfg(target_family = "windows")]
+lazy_static! {
+    pub static ref SOCKET_PATH: PathBuf = format!("\\\\.\\pipe\\{SOCKET_ID}").into();
+}
+
 #[cfg(target_family = "unix")]
 pub async fn message_ipc<T: Serialize>(message: IPCData<T>) -> Result<()> {
     let mut stream = tokio::net::UnixStream::connect(SOCKET_PATH.as_path()).await?;

@@ -1865,6 +1865,8 @@ dependencies = [
 [[package]]
 name = "io-plugin"
 version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8df5926d35534dbbec42439e2c2af86f3b14c8652aee905a6abf439f999be381"
 dependencies = [
  "io-plugin-macros 0.5.4",
  "lazy_static",
@@ -1892,6 +1894,8 @@ dependencies = [
 [[package]]
 name = "io-plugin-macros"
 version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54c20bc9df7fe355e6489adc990b4b1fd95c60c7cc567d4a34425319120aebc8"
 dependencies = [
  "itertools 0.12.0",
  "lazy_static",
