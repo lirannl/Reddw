@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "select id from queue",
+  "query": "select id from queue where source = ?",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,11 @@
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false
     ]
   },
-  "hash": "c04b0690f3f2fab23a95034f4330098bdf3b333474156c536da579e28eb31764"
+  "hash": "8d7ef6923080b890f35f6829d5de4a85c51618bbcc5ee50f5b80a67e95755efe"
 }

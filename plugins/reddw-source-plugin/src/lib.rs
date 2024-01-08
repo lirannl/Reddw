@@ -6,8 +6,7 @@ use io_plugin::io_plugin;
 use io_plugin::{Deserialise, Serialise};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "host")]
-use sqlx::{types::chrono::NaiveDateTime, FromRow};
-#[cfg(feature = "plugin")]
+use sqlx::{query, types::chrono::NaiveDateTime, FromRow, SqlitePool};
 use std::error::Error;
 use std::{collections::HashMap, fmt::Debug};
 use ts_rs::TS;
@@ -27,7 +26,7 @@ pub enum ReddwSource<Parameters: Serialise + Deserialise> {
     /// Remove an instance
     DeregisterInstance(String, ()),
     /// Use an instance to get wallpapers
-    GetWallpapers(String, Vec<Wallpaper>),
+    GetWallpapers(String, Vec<String>, Vec<Wallpaper>),
     GetInstances(Vec<String>),
 }
 
@@ -63,6 +62,24 @@ impl Wallpaper {
             was_set: false,
             source,
         }
+    }
+    #[cfg(feature = "host")]
+    pub async fn db_insert(self, db: &SqlitePool) -> Result<(), Box<dyn Error>> {
+        query!(
+            "---sql
+            insert into queue (id, name, data_url, info_url, date, source, was_set) values 
+            ($1, $2, $3, $4, $5, $6, $7)",
+            self.id,
+            self.name,
+            self.data_url,
+            self.info_url,
+            self.date,
+            self.source,
+            self.was_set,
+        )
+        .execute(db)
+        .await?;
+        Ok(())
     }
 }
 

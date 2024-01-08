@@ -28,7 +28,7 @@ export default () => {
     //             console.error(`${level}: ${message}`);
     //     }
     // })
-    return <div class="toast toast-end toast-bottom">
+    return <div class="toast toast-end toast-bottom z-50">
         <TransitionGroup name="slide">
             <For each={messageLog()}>{([message, level]) =>
                 <div class={`alert alert-${level.toLowerCase()}`}>{message}</div>

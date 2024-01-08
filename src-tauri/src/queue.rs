@@ -77,7 +77,8 @@ pub async fn cache_queue(app: tauri::AppHandle) -> Result<usize, String> {
                     }
                     Some(instance)
                 }) {
-                    wallpapers.extend(plugin.get_wallpapers(instance.to_string()).await.map_err(|err| anyhow!("{err:#?}"))?);
+                    let ids = get_ids_from_source(&app, &plugin.name).await?;
+                    wallpapers.extend(plugin.get_wallpapers(instance.to_string(), ids).await.map_err(|err| anyhow!("{err:#?}"))?);
                 }
                 Ok(wallpapers)
             }
@@ -109,4 +110,12 @@ pub async fn download_queue(app: tauri::AppHandle) -> Result<()> {
         }
     }
     Result::<()>::Ok(())
+}
+
+pub async fn get_ids_from_source(app: &AppHandle, plugin: &String) -> Result<Vec<String>, anyhow::Error> {
+    let source = format!("{plugin}_%");
+    let vec = query!("select id from queue where source like ?", source)
+        .fetch_all(&app.db().await)
+        .await?.into_iter();
+    Ok(vec.map(|rec| rec.id).collect())
 }

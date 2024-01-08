@@ -8,5 +8,11 @@ export default {
     extend: {},
   },
   plugins: [require("daisyui")],
+  safelist: [
+    "alert-error",
+    "alert-neutral",
+    "alert-info",
+    "alert-warning"
+  ]
 }
 

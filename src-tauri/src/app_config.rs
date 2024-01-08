@@ -3,6 +3,7 @@ use notify::{recommended_watcher, RecursiveMode, Watcher};
 use rfd;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sqlx::query;
 use std::{
     collections::HashMap,
     fs::{self, read_to_string},
@@ -16,7 +17,9 @@ use tauri::{
 };
 use ts_rs::TS;
 
-use crate::{app_handle_ext::AppHandleExt, queue::manage_queue, source_host::PluginHostMode, log::LogLevel};
+use crate::{
+    app_handle_ext::AppHandleExt, log::LogLevel, queue::manage_queue, source_host::PluginHostMode,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
@@ -74,7 +77,10 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
     {
         let config_json = read_to_string(&config_path).unwrap();
         let config: AppConfig = serde_json::from_str(&config_json).unwrap_or_else(|e| {
-            app.log(&format!("Failed to parse config: {:#?}", e), LogLevel::Error);
+            app.log(
+                &format!("Failed to parse config: {:#?}", e),
+                LogLevel::Error,
+            );
             let mut def_conf = AppConfig::default();
             def_conf.cache_dir = app.path_resolver().app_cache_dir().unwrap();
             let def_conf_str = serde_json::to_string_pretty(&def_conf)
@@ -132,6 +138,25 @@ pub async fn get_config(app: tauri::AppHandle) -> tauri::Result<AppConfig> {
 
 #[tauri::command]
 pub async fn set_config(app: tauri::AppHandle, app_config: AppConfig) -> tauri::Result<()> {
+    let sources_old = app.get_config().await.sources;
+    let sources_new = &app_config.sources;
+    let (_added, removed) = (
+        sources_new
+            .iter()
+            .filter(|(k, _)| !sources_old.contains_key(k.to_owned())),
+        sources_old
+            .iter()
+            .filter(|(k, _)| !sources_new.contains_key(k.to_owned())),
+    );
+    for (source, _data) in removed {
+        if let Err(err) = query!("delete from queue where source = ?", source)
+            .execute(&app.db().await)
+            .await
+        {
+            app.log(&err, LogLevel::Error);
+        }
+    }
+
     let config_json = serde_json::to_string_pretty(&app_config)?;
     fs::write(app.get_config_path(), config_json)?;
     Ok(())

@@ -17,9 +17,8 @@ plugin = []
 serde = { version = "1.0", features = ["derive"] }
 ts-rs = "6.2"
 chrono = { version = "0.4", features = ["serde"] }
-sqlx = { version = "0.6", features = [
+sqlx = { version = "0.7", features = [
     "runtime-tokio-native-tls",
     "chrono",
-    "offline",
 ], optional = true }
 io-plugin = { version = "0.5.4" }

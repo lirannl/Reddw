@@ -82,39 +82,24 @@ impl ReddwSourceTrait<Parameters> for WallHavenSource {
         Ok(())
     }
 
-    async fn get_wallpapers(&mut self, id: String) -> Result<Vec<Wallpaper>, Box<dyn Error>> {
+    async fn get_wallpapers(
+        &mut self,
+        id: String,
+        wallpaper_ids: Vec<String>,
+    ) -> Result<Vec<Wallpaper>, Box<dyn Error>> {
         let parameters = {
             self.instances
                 .get(&id)
                 .ok_or(anyhow!("No registered instance under the name \"{id}\""))?
                 .clone()
         };
-        let terms = parameters.tags.join("+");
-        let request = reqwest::Request::new(
-            Method::GET,
-            Url::parse(&format!("https://wallhaven.cc/api/v1/search?q={terms}"))?,
-        );
-        let response = Client::new().execute(request).await?;
-        if !response.status().is_success() {
-            Err(anyhow!(
-                "HTTP {} while attempting to communicate with WallHaven",
-                response.status()
-            ))?;
+        let source = format!("{NAME}_{id}");
+        let mut wallpapers = Vec::new();
+        let mut page = 1;
+        while wallpapers.len() == 0 {
+            wallpapers = wallpapers_page(&source, &parameters, &wallpaper_ids, page).await?;
+            page += 1;
         }
-        let response: BaseResponse = serde_json::from_slice(&response.bytes().await?)?;
-        let wallpapers = response
-            .data
-            .into_iter()
-            .map(|datum| {
-                Wallpaper::new(
-                    datum.id,
-                    None,
-                    datum.path,
-                    Some(datum.url),
-                    format!("{NAME}_{id}"),
-                )
-            })
-            .collect();
         Ok(wallpapers)
     }
 
@@ -137,4 +122,40 @@ async fn main() {
     }
     .main_loop()
     .await
+}
+
+async fn wallpapers_page(
+    source: &str,
+    parameters: &Parameters,
+    ids: &Vec<String>,
+    page: u32,
+) -> Result<Vec<Wallpaper>, Box<dyn Error>> {
+    let terms = parameters.tags.join("+");
+    let request = reqwest::Request::new(
+        Method::GET,
+        Url::parse(&format!("https://wallhaven.cc/api/v1/search?q={terms}&page={page}"))?,
+    );
+    let response = Client::new().execute(request).await?;
+    if !response.status().is_success() {
+        Err(anyhow!(
+            "HTTP {} while attempting to communicate with WallHaven",
+            response.status()
+        ))?;
+    }
+    let response: BaseResponse = serde_json::from_slice(&response.bytes().await?)?;
+    let wallpapers = response
+        .data
+        .into_iter()
+        .map(|datum| {
+            Wallpaper::new(
+                datum.id,
+                None,
+                datum.path,
+                Some(datum.url),
+                source.to_string(),
+            )
+        })
+        .filter(|wallpaper| !ids.contains(&wallpaper.id))
+        .collect();
+    Ok(wallpapers)
 }
