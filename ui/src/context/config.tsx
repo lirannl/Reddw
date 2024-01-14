@@ -4,10 +4,9 @@ import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { createResource } from "solid-js";
 
-export const [appConfig, { mutate: updateAppConfig }] = createResource<AppConfig>(async () => await invoke("get_config"), {
+const [appConfig, { mutate }] = createResource<AppConfig>(async () => await invoke("get_config"), {
     initialValue: {
         history_amount: 0,
-        allow_nsfw: false,
         cache_dir: "",
         cache_size: 0,
         sources: [],
@@ -16,13 +15,17 @@ export const [appConfig, { mutate: updateAppConfig }] = createResource<AppConfig
             nanos: 0,
             secs: 10
         },
-        theme: "dark",
+        theme: "default",
         plugin_host_mode: "Daemon",
         plugins_dir: null,
     }
 });
+export { appConfig };
+export const updateAppConfig = (appConfig: AppConfig) => {
+    invoke("set_config", { appConfig });
+}
 listen("config_changed", ({ payload }: { payload: AppConfig[] }) => {
-    updateAppConfig(payload.slice(-1)[0]);
+    mutate(payload.slice(-1)[0]);
 });
 
 // const configContext = createContext([undefined as any, () => {}] as ReturnType<typeof createStore<AppConfig>>);

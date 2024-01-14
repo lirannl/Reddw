@@ -1,7 +1,7 @@
 import { For, createEffect, createResource, createSignal, on } from "solid-js";
 import { AiOutlineMinus, AiOutlinePlus } from "solid-icons/ai"
-import { appConfig, updateAppConfig } from "./context/config";
-import { invoke } from "./overrides";
+import { appConfig, updateAppConfig } from "../context/config";
+import { invoke } from "../overrides";
 
 export default () => {
     let sourceConfig: HTMLElement = undefined as any;
@@ -48,59 +48,50 @@ export default () => {
 
     const removeSource = (source_instance: string) => () => {
         propagate_update = true;
-        updateAppConfig(prev => ({
+        const prev = appConfig();
+        updateAppConfig({
             ...prev, sources: Object.fromEntries(
                 Object.entries(prev.sources).filter(([k, _]) => k != source_instance)
             )
-        }));
+        });
     };
 
     const addSource = () => {
         const newSourceValue = newSource();
-        updateAppConfig(prev => ({ ...prev, sources: Object.fromEntries([...Object.entries(prev.sources), [`${newSourceValue}_${newInstance()}`, {}]]) }));
+        const prev = appConfig();
+        updateAppConfig({ ...prev, sources: Object.fromEntries([...Object.entries(prev.sources), [`${newSourceValue}_${newInstance()}`, {}]]) });
         setNewSource(); setNewInstance("");
         if (newSourceValue) loadPlugin(newSourceValue);
     };
 
-    return <div class="card">
-        <form class="card-body" onSubmit={e => { e.preventDefault() }}>
-            <div class="collapse bg-base-200">
-                <input type="checkbox" checked={true} />
-                <div class="collapse-title text-xl font-medium">
-                    Sources
-                </div>
-                <div class="collapse-content">
-                    <For each={Object.keys(appConfig().sources)}>{source_instance => {
-                        const [source, instance] = source_instance.split("_");
-                        return <div classList={{
-                            "join": true,
-                            "bg-neutral": [source, instance].equals(selectedSource() ?? [])
-                        }}>
-                            <div class="btn join-item w-full" onClick={() => { selectSource([source, instance]); loadPlugin(source) }}>
-                                <div class="bg-neutral rounded-md px-1 text-xl">{source}</div>
-                                <div class="bg-neutral rounded-md px-1 text-xl">{instance}</div>
-                            </div>
-                            <div class="btn bg-secondary bg-opacity-50 join-item" onClick={removeSource(source_instance)}>
-                                Remove<AiOutlineMinus />
-                            </div>
-                        </div>
-                    }}</For>
-                    <div class="join w-full" onKeyPress={({ code }) => { if (code === "Enter" && newSource() && newInstance()) addSource() }}>
-                        <select class="select join-item" onInput={(e) => setNewSource(e.target.value)} value={newSource()}>
-                            <option value={undefined}>Select source</option>
-                            <For each={source_plugins()}>{source_plugin =>
-                                <option>{source_plugin}</option>
-                            }</For>
-                        </select>
-                        <input class="input bg-neutral join-item" onInput={e => setNewInstance(e.target.value)} value={newInstance() ?? ""} />
-                        <div onClick={() => { const s = newSource(); if (s) loadPlugin(s) }} classList={{
-                            "join-item": true, btn: true, "btn-disabled": !(newSource() && newInstance())
-                        }}><AiOutlinePlus title="Add" onClick={addSource} /></div>
-                    </div>
-                    {//@ts-ignore
-                        <div ref={sourceConfig} />}
-                </div>
+    return <><For each={Object.keys(appConfig().sources)}>{source_instance => {
+        const [source, instance] = source_instance.split("_");
+        return <div classList={{
+            "join": true,
+            "bg-neutral": [source, instance].equals(selectedSource() ?? [])
+        }}>
+            <div class="btn join-item w-full" onClick={() => { selectSource([source, instance]); loadPlugin(source) }}>
+                <div class="bg-neutral text-neutral rounded-md px-1 text-xl">{source}</div>
+                <div class="bg-neutral text-neutral rounded-md px-1 text-xl">{instance}</div>
             </div>
-        </form>
-    </div>;
+            <div class="btn bg-secondary bg-opacity-50 join-item" onClick={removeSource(source_instance)}>
+                Remove<AiOutlineMinus />
+            </div>
+        </div>
+    }}</For>
+        <div class="join w-full" onKeyPress={({ code }) => { if (code === "Enter" && newSource() && newInstance()) addSource() }}>
+            <select class="select join-item" onInput={(e) => setNewSource(e.target.value)} value={newSource()}>
+                <option value={undefined}>Select source</option>
+                <For each={source_plugins()}>{source_plugin =>
+                    <option>{source_plugin}</option>
+                }</For>
+            </select>
+            <input class="input bg-neutral join-item" onInput={e => setNewInstance(e.target.value)} value={newInstance() ?? ""} />
+            <div onClick={() => { const s = newSource(); if (s) loadPlugin(s) }} classList={{
+                "join-item": true, btn: true, "btn-disabled": !(newSource() && newInstance())
+            }}><AiOutlinePlus title="Add" onClick={addSource} /></div>
+        </div>
+        {//@ts-ignore
+            <div ref={sourceConfig} />}
+    </>;
 };

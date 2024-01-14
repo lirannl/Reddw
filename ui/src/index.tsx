@@ -6,7 +6,7 @@ import './index.css'
 import App from './App'
 // import { ConfigProvider } from './context/config'
 
-const root = document.getElementById('root')
+const root = document.body
 
 render(() =>
     <App />

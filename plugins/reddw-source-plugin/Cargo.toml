@@ -21,4 +21,4 @@ sqlx = { version = "0.7", features = [
     "runtime-tokio-native-tls",
     "chrono",
 ], optional = true }
-io-plugin = { version = "0.5.4" }
+io-plugin = { version = "0.6.0" }

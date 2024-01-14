@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use macros::command;
 use notify::{recommended_watcher, RecursiveMode, Watcher};
 use rfd;
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,7 @@ use std::{
 };
 use tauri::{
     async_runtime::{block_on, Mutex, Sender},
-    Manager,
+    AppHandle, Manager,
 };
 use ts_rs::TS;
 
@@ -24,8 +25,6 @@ use crate::{
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
 pub struct AppConfig {
-    /// Allow fetching wallpapers from Not Safe For Work sources (aka - sexually explicit content/gore)
-    pub allow_nsfw: bool,
     pub display_background: bool,
     #[ts(type = "Record<string, any>")]
     pub sources: HashMap<String, Value>,
@@ -44,7 +43,6 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            allow_nsfw: false,
             sources: HashMap::new(),
             interval: Duration::from_secs(60 * 60),
             cache_dir: PathBuf::new(),
@@ -58,7 +56,7 @@ impl Default for AppConfig {
     }
 }
 
-pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()> {
+pub fn build(app: AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()> {
     let config_dir = app.path_resolver().app_config_dir().unwrap();
     if !&config_dir.exists() {
         fs::create_dir_all(&config_dir)?;
@@ -95,17 +93,18 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
     }
     spawn(move || {
         let mut watcher = recommended_watcher(move |res: notify::Result<notify::Event>| {
+            let app = app.app_handle();
             if res.is_ok() {
                 (|| -> Result<()> {
                     let config =
                         serde_json::from_str::<AppConfig>(&read_to_string(&config_path_clone)?)?;
-                    let old_config = block_on(app.state::<Mutex<AppConfig>>().lock()).clone();
+                    let old_config = app.state::<Mutex<AppConfig>>().blocking_lock().clone();
                     if old_config.interval != config.interval {
                         tx_interval
                             .try_send(config.interval)
                             .or_else(|e| Err(anyhow!("{:#?}", e)))?;
                     }
-                    *block_on(app.state::<Mutex<AppConfig>>().lock()) = config.clone();
+                    *app.state::<Mutex<AppConfig>>().blocking_lock() = config.clone();
                     if old_config.cache_dir != config.cache_dir {
                         block_on(manage_queue(&app))?;
                     }
@@ -113,7 +112,7 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
                     Ok(())
                 })()
                 .unwrap_or_else(|err| {
-                    eprintln!("{:#?}", err);
+                    app.log(&err, LogLevel::Error);
                 });
             }
         })
@@ -131,13 +130,13 @@ pub fn build(app: tauri::AppHandle, tx_interval: Sender<Duration>) -> tauri::Res
     Ok(())
 }
 
-#[tauri::command]
-pub async fn get_config(app: tauri::AppHandle) -> tauri::Result<AppConfig> {
-    Ok(app.get_config().await)
+#[command]
+pub async fn get_config(app: AppHandle) -> AppConfig {
+    app.get_config().await
 }
 
-#[tauri::command]
-pub async fn set_config(app: tauri::AppHandle, app_config: AppConfig) -> tauri::Result<()> {
+#[command]
+pub async fn set_config(app: AppHandle, app_config: AppConfig) -> Result<()> {
     let sources_old = app.get_config().await.sources;
     let sources_new = &app_config.sources;
     let (_added, removed) = (
@@ -162,11 +161,11 @@ pub async fn set_config(app: tauri::AppHandle, app_config: AppConfig) -> tauri::
     Ok(())
 }
 
-#[tauri::command]
-pub async fn select_folder() -> Result<String, String> {
+#[command]
+pub async fn select_folder() -> Result<PathBuf> {
     let folder = rfd::AsyncFileDialog::new()
         .pick_folder()
         .await
-        .ok_or("No folder picked")?;
-    Ok(folder.path().to_str().ok_or("Invalid path")?.to_string())
+        .ok_or(anyhow!("No folder picked"))?;
+    Ok(folder.path().to_path_buf())
 }

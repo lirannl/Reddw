@@ -1,15 +1,15 @@
 use crate::app_handle_ext::AppHandleExt;
 use crate::log::LogLevel;
 use crate::queue::{get_ids_from_source, trim_queue};
-use crate::source_host::Plugins;
+use crate::source_host::SourcePlugins;
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose, Engine};
 use data_encoding::BASE32;
+use macros::command;
 use mime_guess::mime::IMAGE;
 use mime_guess::Mime;
 use rand::seq::SliceRandom;
 use reddw_source_plugin::Wallpaper;
-use sha2::{Digest, Sha256};
 use sqlx::{query, query_as};
 use std::fmt::Display;
 use std::fs::{self, read_dir as read_dir_sync};
@@ -23,8 +23,8 @@ use tauri::{
 use tokio::{fs::read, time::interval};
 
 pub fn hash_url(this: &(impl Display + ?Sized)) -> String {
-    let hash = Sha256::digest(this.to_string().as_bytes());
-    BASE32.encode(&hash)[..7].to_string()
+    let hash = sha256::digest(this.to_string());
+    BASE32.encode(hash.as_bytes())[..7].to_string()
 }
 
 async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
@@ -52,7 +52,7 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
 
     let wp = get_wp().await;
     let wallpaper = {
-        let plugins = app_handle.state::<Plugins>();
+        let plugins = app_handle.state::<SourcePlugins>();
         let mut plugins = plugins.lock().await;
         let plugin = plugins
             .get_mut(plugin_name)
@@ -210,102 +210,87 @@ pub async fn download_wallpaper(app_handle: &AppHandle, wp_url: impl Display) ->
     Ok(wallpaper_filename)
 }
 
-#[tauri::command]
-pub async fn update_wallpaper(app_handle: AppHandle) -> Result<(), String> {
+#[command]
+pub async fn update_wallpaper(app_handle: AppHandle) -> Result<()> {
     if let Some(main_window) = app_handle.get_window("main") {
-        main_window
-            .emit("update_wallpaper_start", None::<()>)
-            .map_err(|e| e.to_string())?;
+        main_window.emit("update_wallpaper_start", None::<()>)?;
     }
-    let res = update_wallpaper_internal(app_handle.app_handle()).await;
+    let res = update_wallpaper_internal(app_handle.app_handle()).await?;
     if let Some(main_window) = app_handle.get_window("main") {
-        main_window
-            .emit("update_wallpaper_stop", None::<()>)
-            .map_err(|e| e.to_string())?;
+        main_window.emit("update_wallpaper_stop", None::<()>)?;
     }
-    res.map_err(|e| {
-        eprintln!("{e:#?}");
-        e.to_string()
-    })
+    Ok(res)
 }
 
-#[tauri::command]
-pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Result<(), String> {
-    (async move || -> Result<()> {
-        let wallpaper = wallpaper;
-        let cache_dir = &app_handle.get_config().await.cache_dir;
-        let cache_dir_clone = cache_dir.clone();
-        let downloaded_file = fs::read_dir(cache_dir)?.find_map(|e| {
-            if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok()
-                && hash_url(&name) == wallpaper.id
-            {
-                Some(name)
-            } else {
-                None
-            }
-        });
-
-        let wallpaper_path = if let Some(path) = downloaded_file {
-            Ok(cache_dir_clone.join(path))
+#[command]
+pub async fn set_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Result<()> {
+    let wallpaper = wallpaper;
+    let cache_dir = &app_handle.get_config().await.cache_dir;
+    let cache_dir_clone = cache_dir.clone();
+    let downloaded_file = fs::read_dir(cache_dir)?.find_map(|e| {
+        if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok()
+            && hash_url(&name) == wallpaper.id
+        {
+            Some(name)
         } else {
-            download_wallpaper(&app_handle, &wallpaper.data_url)
-                .await
-                .map(|p| cache_dir_clone.join(p))
-        }?;
+            None
+        }
+    });
 
-        wallpaper::set_from_path(
-            wallpaper_path
-                .to_str()
-                .ok_or("Invalid path")
-                .map_err(|e| anyhow!("{e:#?}"))?,
-        )
-        .map_err(|e| anyhow!(e.to_string()))?;
+    let wallpaper_path = if let Some(path) = downloaded_file {
+        Ok(cache_dir_clone.join(path))
+    } else {
+        download_wallpaper(&app_handle, &wallpaper.data_url)
+            .await
+            .map(|p| cache_dir_clone.join(p))
+    }?;
 
-        let now = chrono::Utc::now().naive_utc();
-        query!(
-            "---sql
+    wallpaper::set_from_path(
+        wallpaper_path
+            .to_str()
+            .ok_or("Invalid path")
+            .map_err(|e| anyhow!("{e:#?}"))?,
+    )
+    .map_err(|e| anyhow!(e.to_string()))?;
+
+    let now = chrono::Utc::now().naive_utc();
+    query!(
+        "---sql
             update queue set was_set = 1, date = $1 where id = $2",
-            now,
-            wallpaper.id
-        )
-        .execute(&app_handle.db().await)
-        .await?;
+        now,
+        wallpaper.id
+    )
+    .execute(&app_handle.db().await)
+    .await?;
 
-        app_handle
-            .tray_handle()
-            .get_item("open_info")
-            .set_title(wallpaper.name.as_deref().unwrap_or("Untitled"))?;
-        app_handle.emit_all("wallpaper_updated", wallpaper.clone())?;
-        eprintln!("New wallpaper: {:#?}", wallpaper);
-        Ok(())
-    })()
-    .await
-    .map_err(|err| err.to_string())
+    app_handle
+        .tray_handle()
+        .get_item("open_info")
+        .set_title(wallpaper.name.as_deref().unwrap_or("Untitled"))?;
+    app_handle.emit_all("wallpaper_updated", wallpaper.clone())?;
+    eprintln!("New wallpaper: {:#?}", wallpaper);
+    Ok(())
 }
 
-#[tauri::command]
-pub async fn get_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Result<String, String> {
-    (async move || -> Result<String> {
-        let cache_dir = &app_handle.get_config().await.cache_dir;
-        let file = read_dir_sync(cache_dir)?.find_map(|e| {
-            if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok()
-                && name != ""
-                && name.starts_with(&wallpaper.id)
-            {
-                Some(e.as_ref().ok()?.path())
-            } else {
-                None
-            }
-        });
-        let data = if let Some(file) = file {
-            read(file).await?
+#[command]
+pub async fn get_wallpaper(app_handle: AppHandle, wallpaper: Wallpaper) -> Result<String> {
+    let cache_dir = &app_handle.get_config().await.cache_dir;
+    let file = read_dir_sync(cache_dir)?.find_map(|e| {
+        if let Some(name) = (e.as_ref().ok()?.file_name().into_string()).ok()
+            && name != ""
+            && name.starts_with(&wallpaper.id)
+        {
+            Some(e.as_ref().ok()?.path())
         } else {
-            let file = download_wallpaper(&app_handle, &wallpaper.data_url).await?;
-            read(file).await?
-        };
-        // base64 encode data
-        Ok(general_purpose::STANDARD.encode(&data))
-    })()
-    .await
-    .map_err(|e| e.to_string())
+            None
+        }
+    });
+    let data = if let Some(file) = file {
+        read(file).await?
+    } else {
+        let file = download_wallpaper(&app_handle, &wallpaper.data_url).await?;
+        read(file).await?
+    };
+    // base64 encode data
+    Ok(general_purpose::STANDARD.encode(&data))
 }

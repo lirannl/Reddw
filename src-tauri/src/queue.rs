@@ -1,8 +1,9 @@
 use crate::app_handle_ext::AppHandleExt;
-use crate::source_host::Plugins;
+use crate::source_host::SourcePlugins;
 use crate::wallpaper_changer::download_wallpaper;
 use ::futures::future::join_all;
 use anyhow::{anyhow, Result};
+use macros::command;
 use reddw_source_plugin::Wallpaper;
 use sqlx::migrate::MigrateDatabase;
 use sqlx::{migrate, query, query_as, Pool, Sqlite};
@@ -28,13 +29,12 @@ pub async fn manage_queue(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-#[tauri::command]
-pub async fn get_queue(app: tauri::AppHandle) -> Result<Vec<Wallpaper>, String> {
+#[command]
+pub async fn get_queue(app: tauri::AppHandle) -> Result<Vec<Wallpaper>> {
     let db = app.db().await;
     let queue = query_as!(Wallpaper, "SELECT * FROM queue ORDER BY date DESC")
         .fetch_all(&db)
-        .await
-        .map_err(|e| e.to_string())?;
+        .await?;
     Ok(queue)
 }
 
@@ -58,40 +58,41 @@ pub async fn trim_queue(app: &tauri::AppHandle) -> Result<()> {
     Ok(())
 }
 
-#[tauri::command]
-pub async fn cache_queue(app: tauri::AppHandle) -> Result<usize, String> {
-    async {
-        trim_queue(&app).await?;
-        let plugins = app.state::<Plugins>();
-        let mut plugins = plugins.lock().await;
-        let wallpapers = join_all(plugins.values_mut().map(|plugin| {
-            let app = app.app_handle();
-            async move {
-                let config = app.get_config().await;
-                let name = plugin.name.clone();
-                let mut wallpapers = Vec::new();
-                for instance in config.sources.keys().filter_map(|key| {
-                    let (plugin, instance) = key.split_once("_")?;
-                    if plugin != name {
-                        return None;
-                    }
-                    Some(instance)
-                }) {
-                    let ids = get_ids_from_source(&app, &plugin.name).await?;
-                    wallpapers.extend(plugin.get_wallpapers(instance.to_string(), ids).await.map_err(|err| anyhow!("{err:#?}"))?);
+#[command]
+pub async fn cache_queue(app: AppHandle) -> Result<usize> {
+    trim_queue(&app).await?;
+    let plugins = app.state::<SourcePlugins>();
+    let mut plugins = plugins.lock().await;
+    let wallpapers = join_all(plugins.values_mut().map(|plugin| {
+        let app = app.app_handle();
+        async move {
+            let config = app.get_config().await;
+            let name = plugin.name.clone();
+            let mut wallpapers = Vec::new();
+            for instance in config.sources.keys().filter_map(|key| {
+                let (plugin, instance) = key.split_once("_")?;
+                if plugin != name {
+                    return None;
                 }
-                Ok(wallpapers)
+                Some(instance)
+            }) {
+                let ids = get_ids_from_source(&app, &plugin.name).await?;
+                wallpapers.extend(
+                    plugin
+                        .get_wallpapers(instance.to_string(), ids)
+                        .await
+                        .map_err(|err| anyhow!(err.to_string()))?,
+                );
             }
-        }))
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>>>()?;
-        let wallpapers = wallpapers.into_iter().flat_map(|w| w).collect::<Vec<_>>();
-        spawn(download_queue(app.app_handle()));
-        Ok(wallpapers.len())
-    }
+            Ok(wallpapers)
+        }
+    }))
     .await
-    .map_err(|err: anyhow::Error| err.to_string())
+    .into_iter()
+    .collect::<Result<Vec<_>>>()?;
+    let wallpapers = wallpapers.into_iter().flat_map(|w| w).collect::<Vec<_>>();
+    spawn(download_queue(app.app_handle()));
+    Ok(wallpapers.len())
 }
 
 pub async fn download_queue(app: tauri::AppHandle) -> Result<()> {
@@ -112,10 +113,14 @@ pub async fn download_queue(app: tauri::AppHandle) -> Result<()> {
     Result::<()>::Ok(())
 }
 
-pub async fn get_ids_from_source(app: &AppHandle, plugin: &String) -> Result<Vec<String>, anyhow::Error> {
+pub async fn get_ids_from_source(
+    app: &AppHandle,
+    plugin: &String,
+) -> Result<Vec<String>, anyhow::Error> {
     let source = format!("{plugin}_%");
     let vec = query!("select id from queue where source like ?", source)
         .fetch_all(&app.db().await)
-        .await?.into_iter();
+        .await?
+        .into_iter();
     Ok(vec.map(|rec| rec.id).collect())
 }

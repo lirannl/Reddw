@@ -13,6 +13,9 @@ export default {
     "alert-neutral",
     "alert-info",
     "alert-warning"
-  ]
+  ],
+  daisyui: {
+    themes: ["light", "dark", "cupcake", "cyberpunk", "luxury", "synthwave", "dracula", "forest"],
+  }
 }
 
