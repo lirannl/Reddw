@@ -124,3 +124,12 @@ pub async fn get_ids_from_source(
         .into_iter();
     Ok(vec.map(|rec| rec.id).collect())
 }
+
+#[command]
+pub async fn refresh_source_queue(app: AppHandle, source: String) -> Result<()> {
+    let db = app.db().await;
+    query!("delete from queue where source = ?", source)
+        .execute(&db)
+        .await?;
+    Ok(())
+}

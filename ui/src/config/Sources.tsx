@@ -1,5 +1,5 @@
 import { For, createEffect, createResource, createSignal, on } from "solid-js";
-import { AiOutlineMinus, AiOutlinePlus } from "solid-icons/ai"
+import { AiOutlineClear, AiOutlineMinus, AiOutlinePlus } from "solid-icons/ai"
 import { appConfig, updateAppConfig } from "../context/config";
 import { invoke } from "../overrides";
 
@@ -71,12 +71,16 @@ export default () => {
             "bg-neutral": [source, instance].equals(selectedSource() ?? [])
         }}>
             <div class="btn join-item w-full" onClick={() => { selectSource([source, instance]); loadPlugin(source) }}>
-                <div class="bg-neutral text-neutral rounded-md px-1 text-xl">{source}</div>
-                <div class="bg-neutral text-neutral rounded-md px-1 text-xl">{instance}</div>
+                <div class="bg-neutral text-secondary rounded-md px-1 text-xl">{source}</div>
+                <div class="bg-neutral text-secondary rounded-md px-1 text-xl">{instance}</div>
+            </div>
+            <div class="btn bg-secondary bg-opacity-50 join-item" onClick={() => invoke("refresh_source_queue", { source: source_instance })}>
+                <AiOutlineClear aria-label="refresh" />
             </div>
             <div class="btn bg-secondary bg-opacity-50 join-item" onClick={removeSource(source_instance)}>
-                Remove<AiOutlineMinus />
+                <AiOutlineMinus aria-label="remove" />
             </div>
+
         </div>
     }}</For>
         <div class="join w-full" onKeyPress={({ code }) => { if (code === "Enter" && newSource() && newInstance()) addSource() }}>

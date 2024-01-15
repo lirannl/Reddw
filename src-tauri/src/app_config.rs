@@ -1,25 +1,29 @@
 use anyhow::{anyhow, Result};
 use macros::command;
-use notify::{recommended_watcher, RecursiveMode, Watcher};
+use notify::RecursiveMode;
 use rfd;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::query;
 use std::{
     collections::HashMap,
+    fmt::Debug,
     fs::{self, read_to_string},
     path::{Path, PathBuf},
-    thread::{self, spawn},
     time::Duration,
 };
 use tauri::{
-    async_runtime::{block_on, Mutex, Sender},
+    async_runtime::{Mutex, Sender},
     AppHandle, Manager,
 };
 use ts_rs::TS;
 
 use crate::{
-    app_handle_ext::AppHandleExt, log::LogLevel, queue::manage_queue, source_host::PluginHostMode,
+    app_handle_ext::AppHandleExt,
+    log::LogLevel,
+    // queue::manage_queue,
+    source_host::PluginHostMode,
+    watcher::watch_path,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
@@ -91,42 +95,34 @@ pub fn build(app: AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()>
             .or(Err(tauri::Error::FailedToSendMessage))?;
         app.manage(Mutex::new(config.clone()));
     }
-    spawn(move || {
-        let mut watcher = recommended_watcher(move |res: notify::Result<notify::Event>| {
-            let app = app.app_handle();
-            if res.is_ok() {
-                (|| -> Result<()> {
-                    let config =
-                        serde_json::from_str::<AppConfig>(&read_to_string(&config_path_clone)?)?;
-                    let old_config = app.state::<Mutex<AppConfig>>().blocking_lock().clone();
-                    if old_config.interval != config.interval {
-                        tx_interval
-                            .try_send(config.interval)
-                            .or_else(|e| Err(anyhow!("{:#?}", e)))?;
-                    }
-                    *app.state::<Mutex<AppConfig>>().blocking_lock() = config.clone();
-                    if old_config.cache_dir != config.cache_dir {
-                        block_on(manage_queue(&app))?;
-                    }
-                    app.emit_all("config_changed", vec![old_config, config])?;
-                    Ok(())
-                })()
-                .unwrap_or_else(|err| {
-                    app.log(&err, LogLevel::Error);
-                });
-            }
-        })
-        .unwrap();
 
-        // Add a path to be watched. All files and directories at that path and
-        // below will be monitored for changes.
-        watcher
-            .watch(&config_path.as_path(), RecursiveMode::NonRecursive)
-            .unwrap();
-        loop {
-            thread::sleep(std::time::Duration::from_secs(1));
-        }
-    });
+    let _handle = watch_path(
+        &config_path,
+        move |_, app| {
+            let tx_interval = tx_interval.clone();
+            let config_path = config_path_clone.clone();
+            Box::pin(async move {
+                let tx_interval = &tx_interval;
+                let config = serde_json::from_str::<AppConfig>(&read_to_string(&config_path)?)?;
+                let old_config = app.state::<Mutex<AppConfig>>().lock().await.clone();
+                if old_config.interval != config.interval {
+                    tx_interval
+                        .try_send(config.interval)
+                        .or_else(|e| Err(anyhow!("{:#?}", e)))?;
+                }
+                *app.state::<Mutex<AppConfig>>().lock().await = config.clone();
+                // if old_config.cache_dir != config.cache_dir {
+                //     manage_queue(&app).await.map_err(|err| anyhow!("{err:#?}"))?;
+                // }
+                app.emit_all("config_changed", vec![old_config, config])?;
+
+                Ok(())
+            })
+        },
+        app,
+        RecursiveMode::NonRecursive,
+    )
+    .map_err(|err| std::io::Error::other(err))?;
     Ok(())
 }
 

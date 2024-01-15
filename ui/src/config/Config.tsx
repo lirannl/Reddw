@@ -5,6 +5,7 @@ import { AppConfig } from "$rs/AppConfig"
 import Range from "../components/Range";
 import { log } from "../Log";
 import { invoke } from "@tauri-apps/api";
+import { AiOutlineFolder } from "solid-icons/ai";
 
 function update<Prop extends keyof AppConfig, EventValue, Transformer extends AppConfig[Prop] extends EventValue ? undefined : (v: EventValue) => AppConfig[Prop]>(prop: Prop, transformer?: Transformer) {
     return debounce((event: { target: { value: EventValue; }; }) => {
@@ -36,7 +37,7 @@ export default () => {
                     <input class="join-item input" value={appConfig().plugins_dir ?? undefined} onInput={update("plugins_dir")} />
                     <button class="join-item btn btn-primary" onClick={async () => {
                         log(await invoke("select_folder"), "Info");
-                    }}>Select file</button>
+                    }}><AiOutlineFolder /></button>
                 </label>
             </div>
             <div class="collapse bg-base-200">

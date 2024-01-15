@@ -11,3 +11,8 @@ cargo tauri dev
 cargo tauri build
 ```
 Release executable will be src-tauri/target/release/reddw(.exe)
+
+Todo:
+- [ ] Split config updates into discrete types of updates
+- [ ] Make config file updates use comparisons to determine what type of update to dispatch
+- [ ] React to config updates differently based on the type of update

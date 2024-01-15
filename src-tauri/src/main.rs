@@ -10,9 +10,10 @@ mod queue;
 mod source_host;
 mod tray;
 mod wallpaper_changer;
+mod watcher;
 use crate::{
     app_config::{get_config, select_folder, set_config},
-    queue::{cache_queue, get_queue},
+    queue::{cache_queue, get_queue, refresh_source_queue},
     source_host::{load_plugin_ui, query_available_source_plugins},
     wallpaper_changer::{get_wallpaper, set_wallpaper, update_wallpaper},
 };
@@ -20,6 +21,7 @@ use anyhow::{anyhow, Result};
 use automation_socket::Args;
 use clap::Parser;
 use queue::manage_queue;
+use source_host::host_sources;
 use tauri::{async_runtime::block_on, generate_handler, AppHandle, Manager, Window};
 use wallpaper_changer::setup_changer;
 #[cfg(target_os = "windows")]
@@ -59,6 +61,7 @@ fn main() {
     tauri::Builder::default()
         .setup(move |app| {
             main_window_setup(app.app_handle())?;
+
             block_on(automation_socket::initiate_ipc(&args, app.app_handle()))?;
             if args.background {
                 app.get_window("main")
@@ -73,6 +76,7 @@ fn main() {
             match {
                 // Setup config watcher
                 app_config::build(app.handle(), tx_interval)?;
+
                 // Setup history
                 block_on(manage_queue(&app.handle()))?;
                 Result::<(), anyhow::Error>::Ok(())
@@ -83,7 +87,7 @@ fn main() {
                     std::process::exit(1);
                 }
             }
-            block_on(source_host::host_plugins(app.handle()))?;
+            block_on(host_sources(app.handle()))?;
             Ok(())
         })
         .invoke_handler(generate_handler![
@@ -96,6 +100,7 @@ fn main() {
             get_queue,
             select_folder,
             set_wallpaper,
+            refresh_source_queue,
             get_wallpaper,
             exit,
         ])

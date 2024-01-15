@@ -1,6 +1,5 @@
 use anyhow::{anyhow, bail, Result};
 use macros::command;
-use notify::{recommended_watcher, RecursiveMode, Watcher};
 use reddw_source_plugin::ReddwSourceHandle;
 use serde::{Deserialize, Serialize};
 #[cfg(target_family = "unix")]
@@ -10,7 +9,7 @@ use std::{
     fs::read_dir,
     path::{Path, PathBuf},
 };
-use tauri::{async_runtime::block_on, AppHandle, Manager};
+use tauri::{AppHandle, Manager};
 use tokio::{fs, sync::Mutex};
 use ts_rs::TS;
 
@@ -27,7 +26,7 @@ type PluginMap = HashMap<String, ReddwSourceHandle>;
 
 pub type SourcePlugins = Mutex<PluginMap>;
 
-pub async fn host_plugins(app: AppHandle) -> Result<()> {
+pub async fn host_sources(app: AppHandle) -> Result<()> {
     let config = app.get_config().await;
 
     let plugins_dir = {
@@ -50,39 +49,39 @@ pub async fn host_plugins(app: AppHandle) -> Result<()> {
 
     app.manage::<SourcePlugins>(Mutex::new(plugins));
 
-    let mut watcher = recommended_watcher(move |event: notify::Result<notify::Event>| {
-        let app = app.app_handle();
-        (|| -> Result<()> {
-            let event = event?;
-            let plugins = app.state::<SourcePlugins>();
-            let mut plugins = plugins.blocking_lock();
-            if event.kind.is_remove() || event.kind.is_modify() {
-                let names = plugins
-                    .iter_mut()
-                    .filter_map(|(_, plugin)| {
-                        if event.paths.contains(&plugin.path) {
-                            Some(plugin.name.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                for name in names {
-                    plugins.remove(&name);
-                }
-            }
-            if event.kind.is_create() || event.kind.is_modify() {
-                for path in event.paths {
-                    block_on(load_plugin(app.app_handle(), path, &mut plugins))
-                        .map(|name| app.log(&format!("Loaded \"{name}\""), LogLevel::Info))
-                        .unwrap_or_else(|err| app.log(&err, LogLevel::Error));
-                }
-            }
-            Ok(())
-        })()
-        .unwrap_or_else(move |err| app.log(&err, LogLevel::Error));
-    })?;
-    watcher.watch(plugins_dir.as_path(), RecursiveMode::NonRecursive)?;
+    // let mut watcher = recommended_watcher(move |event: notify::Result<notify::Event>| {
+    //     let app = app.app_handle();
+    //     (|| -> Result<()> {
+    //         let event = event?;
+    //         let plugins = app.state::<SourcePlugins>();
+    //         let mut plugins = plugins.blocking_lock();
+    //         if event.kind.is_remove() || event.kind.is_modify() {
+    //             let names = plugins
+    //                 .iter_mut()
+    //                 .filter_map(|(_, plugin)| {
+    //                     if event.paths.contains(&plugin.path) {
+    //                         Some(plugin.name.clone())
+    //                     } else {
+    //                         None
+    //                     }
+    //                 })
+    //                 .collect::<Vec<_>>();
+    //             for name in names {
+    //                 plugins.remove(&name);
+    //             }
+    //         }
+    //         if event.kind.is_create() || event.kind.is_modify() {
+    //             for path in event.paths {
+    //                 block_on(load_plugin(app.app_handle(), path, &mut plugins))
+    //                     .map(|name| app.log(&format!("Loaded \"{name}\""), LogLevel::Info))
+    //                     .unwrap_or_else(|err| app.log(&err, LogLevel::Error));
+    //             }
+    //         }
+    //         Ok(())
+    //     })()
+    //     .unwrap_or_else(move |err| app.log(&err, LogLevel::Error));
+    // })?;
+    // watcher.watch(plugins_dir.as_path(), RecursiveMode::NonRecursive)?;
 
     Ok(())
 }
@@ -186,6 +185,7 @@ pub async fn load_plugin_ui(app: AppHandle, plugin: String) -> Result<HashMap<St
         .get_mut(&plugin)
         .ok_or(anyhow!("Plugin {plugin} is not installed"))?
         .get_assets()
-        .await.map_err(|err| anyhow!(err.to_string()))?;
+        .await
+        .map_err(|err| anyhow!(err.to_string()))?;
     Ok(assets)
 }

@@ -134,7 +134,9 @@ async fn wallpapers_page(
     let terms = parameters.tags.join("+");
     let request = reqwest::Request::new(
         Method::GET,
-        Url::parse(&format!("https://wallhaven.cc/api/v1/search?q={terms}&page={page}"))?,
+        Url::parse(&format!(
+            "https://wallhaven.cc/api/v1/search?q={terms}&page={page}"
+        ))?,
     );
     let response = Client::new().execute(request).await?;
     if !response.status().is_success() {
@@ -149,8 +151,8 @@ async fn wallpapers_page(
         .into_iter()
         .map(|datum| {
             Wallpaper::new(
-                datum.id,
-                None,
+                datum.id.to_owned(),
+                Some(datum.id),
                 datum.path,
                 Some(datum.url),
                 source.to_string(),
