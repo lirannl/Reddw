@@ -2,8 +2,7 @@
 
 #[cfg(not(feature = "host"))]
 use chrono::NaiveDateTime;
-use io_plugin::io_plugin;
-use io_plugin::{Deserialise, Serialise};
+use io_plugin::{Deserialise, Serialise, io_plugin, GenericValue as GenericValueInner};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "host")]
 use sqlx::{query, types::chrono::NaiveDateTime, FromRow, SqlitePool};
@@ -21,8 +20,8 @@ pub enum ReddwSource<Parameters: Serialise + Deserialise> {
     GetAssets(HashMap<String, Vec<u8>>),
     /// Check the parameters for a given instance
     InspectInstance(String, Parameters),
-    /// Create/modify an instance
-    RegisterInstance(String, Parameters, ()),
+    /// Create/modify an instance. Returns whether an existing instance was overridden
+    RegisterInstance(String, Parameters, bool),
     /// Remove an instance
     DeregisterInstance(String, ()),
     /// Use an instance to get wallpapers
@@ -90,4 +89,21 @@ async fn get_version<Parameters: Serialise + Deserialise, Plugin: ReddwSourceTra
     _plugin: &mut Plugin,
 ) -> Result<String, Box<dyn Error>> {
     Ok(INTERFACE_VERSION.to_string())
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct GenericValue(pub GenericValueInner);
+
+impl TS for GenericValue {
+    fn name() -> String {
+        "any".to_string()
+    }
+
+    fn dependencies() -> Vec<ts_rs::Dependency> {
+        Vec::with_capacity(0)
+    }
+
+    fn transparent() -> bool {
+        false
+    }
 }

@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"]
 #![allow(incomplete_features)]
-#![feature(async_closure, absolute_path, let_chains, if_let_guard)]
+#![feature(async_closure, absolute_path, let_chains, if_let_guard, async_iterator)]
 
 mod app_config;
 mod app_handle_ext;
@@ -12,7 +12,7 @@ mod tray;
 mod wallpaper_changer;
 mod watcher;
 use crate::{
-    app_config::{get_config, select_folder, set_config},
+    app_config::{get_config, select_folder, update_command::update_config},
     queue::{cache_queue, get_queue, refresh_source_queue},
     source_host::{load_plugin_ui, query_available_source_plugins},
     wallpaper_changer::{get_wallpaper, set_wallpaper, update_wallpaper},
@@ -24,6 +24,7 @@ use queue::manage_queue;
 use source_host::host_sources;
 use tauri::{async_runtime::block_on, generate_handler, AppHandle, Manager, Window};
 use wallpaper_changer::setup_changer;
+use watcher::setup_file_watches;
 #[cfg(target_os = "windows")]
 use window_vibrancy::apply_acrylic;
 #[cfg(target_os = "macos")]
@@ -63,6 +64,9 @@ fn main() {
             main_window_setup(app.app_handle())?;
 
             block_on(automation_socket::initiate_ipc(&args, app.app_handle()))?;
+
+            setup_file_watches(app.app_handle());
+
             if args.background {
                 app.get_window("main")
                     .ok_or(anyhow!("No main window"))
@@ -72,12 +76,14 @@ fn main() {
                     .ok_or(anyhow!("No main window"))
                     .map(|w| w.show())??;
             };
+
             let tx_interval = setup_changer(app.handle());
+
             match {
-                // Setup config watcher
+                // Setup config + config watcher
                 app_config::build(app.handle(), tx_interval)?;
 
-                // Setup history
+                // Setup history + queue
                 block_on(manage_queue(&app.handle()))?;
                 Result::<(), anyhow::Error>::Ok(())
             } {
@@ -92,7 +98,7 @@ fn main() {
         })
         .invoke_handler(generate_handler![
             get_config,
-            set_config,
+            update_config,
             update_wallpaper,
             query_available_source_plugins,
             load_plugin_ui,

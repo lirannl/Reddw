@@ -1,10 +1,11 @@
-import { For, createEffect, createResource, createSignal, on } from "solid-js";
+import { For, createEffect, createSignal, on } from "solid-js";
 import { AiOutlineClear, AiOutlineMinus, AiOutlinePlus } from "solid-icons/ai"
-import { appConfig, updateAppConfig } from "../context/config";
+import { appConfig, updateConfig } from "../context/config";
 import { invoke } from "../overrides";
+import { sources } from "../context/sources";
 
 export default () => {
-    let sourceConfig: HTMLElement = undefined as any;
+    let sourceConfig: Element = undefined as any;
     let propagate_update = false;
     const [selectedSource, selectSource] = createSignal<[string, string] | undefined>();
     createEffect(on(appConfig, (appConfig) => {
@@ -14,7 +15,19 @@ export default () => {
         const plugin_instance = selectedSource()?.join("_");
         if (plugin_instance) sourceConfig.setAttribute("value", JSON.stringify(appConfig.sources[plugin_instance]));
     }));
-    const [source_plugins] = createResource(() => invoke<string[]>("query_available_source_plugins"));
+    createEffect(() => {
+        const selected = selectedSource();
+        if (selected)
+            loadPlugin(selected[0]);
+    });
+    createEffect(on(sources, sources => {
+        const source = selectedSource()?.[0];
+        if (sources && source && !sources.includes(source)) {
+            selectSource();
+            sourceConfig.replaceWith(document.createElement("div"));
+            window.location.reload();
+        }
+    }));
     const [newSource, setNewSource] = createSignal<string | undefined>();
     const [newInstance, setNewInstance] = createSignal("");
     const loadPlugin = async (name: string) => {
@@ -48,18 +61,15 @@ export default () => {
 
     const removeSource = (source_instance: string) => () => {
         propagate_update = true;
-        const prev = appConfig();
-        updateAppConfig({
-            ...prev, sources: Object.fromEntries(
-                Object.entries(prev.sources).filter(([k, _]) => k != source_instance)
-            )
-        });
+        updateConfig({ RemoveSource: source_instance });
+        if (selectedSource()?.[0] === source_instance.split("_")[0]) {
+            sourceConfig.replaceWith(document.createElement("div"));
+        }
     };
 
     const addSource = () => {
         const newSourceValue = newSource();
-        const prev = appConfig();
-        updateAppConfig({ ...prev, sources: Object.fromEntries([...Object.entries(prev.sources), [`${newSourceValue}_${newInstance()}`, {}]]) });
+        updateConfig({ AddSource: [`${newSourceValue}_${newInstance()}`, {}] });
         setNewSource(); setNewInstance("");
         if (newSourceValue) loadPlugin(newSourceValue);
     };
@@ -70,23 +80,26 @@ export default () => {
             "join": true,
             "bg-neutral": [source, instance].equals(selectedSource() ?? [])
         }}>
-            <div class="btn join-item w-full" onClick={() => { selectSource([source, instance]); loadPlugin(source) }}>
+            <button disabled={!sources()?.includes(source)} class="btn join-item w-full"
+                onClick={() => { selectSource([source, instance]); }}>
                 <div class="bg-neutral text-secondary rounded-md px-1 text-xl">{source}</div>
                 <div class="bg-neutral text-secondary rounded-md px-1 text-xl">{instance}</div>
-            </div>
-            <div class="btn bg-secondary bg-opacity-50 join-item" onClick={() => invoke("refresh_source_queue", { source: source_instance })}>
+            </button>
+            <button disabled={!sources()?.includes(source)} class="btn bg-secondary bg-opacity-50 join-item"
+                onClick={() => invoke("refresh_source_queue", { source: source_instance })}>
                 <AiOutlineClear aria-label="refresh" />
-            </div>
-            <div class="btn bg-secondary bg-opacity-50 join-item" onClick={removeSource(source_instance)}>
+            </button>
+            <button disabled={!sources()?.includes(source)} class="btn bg-secondary bg-opacity-50 join-item"
+                onClick={removeSource(source_instance)}>
                 <AiOutlineMinus aria-label="remove" />
-            </div>
+            </button>
 
         </div>
     }}</For>
         <div class="join w-full" onKeyPress={({ code }) => { if (code === "Enter" && newSource() && newInstance()) addSource() }}>
             <select class="select join-item" onInput={(e) => setNewSource(e.target.value)} value={newSource()}>
                 <option value={undefined}>Select source</option>
-                <For each={source_plugins()}>{source_plugin =>
+                <For each={sources()}>{source_plugin =>
                     <option>{source_plugin}</option>
                 }</For>
             </select>

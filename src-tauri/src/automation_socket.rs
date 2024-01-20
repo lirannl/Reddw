@@ -1,10 +1,10 @@
-use crate::{main_window_setup, wallpaper_changer::update_wallpaper};
 #[cfg(target_family = "unix")]
 use crate::app_handle_ext::AppHandleExt;
+use crate::{main_window_setup, wallpaper_changer::update_wallpaper};
 use anyhow::{anyhow, Result};
 use reddw_ipc::{IPCData, IPCMessage, SOCKET_PATH};
-use rmp_serde::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
+use serde_cbor::{from_slice, to_vec};
 #[cfg(target_family = "unix")]
 use std::fs::remove_file;
 use std::{io::ErrorKind, process::exit};
@@ -138,7 +138,8 @@ pub async fn initiate_ipc(args: &Args, app: AppHandle) -> Result<()> {
                 .create(SOCKET_PATH.as_os_str())
             {
                 Err(e) if e.kind() == ErrorKind::PermissionDenied => {
-                    let mut client = named_pipe::ClientOptions::new().open(SOCKET_PATH.as_os_str())?;
+                    let mut client =
+                        named_pipe::ClientOptions::new().open(SOCKET_PATH.as_os_str())?;
                     client
                         .write_all(&to_vec(&{
                             if args.quit {
@@ -163,7 +164,8 @@ pub async fn initiate_ipc(args: &Args, app: AppHandle) -> Result<()> {
                                 server.connect().await?;
                                 let mut buf = vec![];
                                 server.read_buf(&mut buf).await?;
-                                server = named_pipe::ServerOptions::new().create(&SOCKET_PATH.as_os_str())?;
+                                server = named_pipe::ServerOptions::new()
+                                    .create(&SOCKET_PATH.as_os_str())?;
                                 let app = app.app_handle();
                                 tokio::spawn(async move {
                                     let message = from_slice::<IPCData<Vec<u8>>>(&buf).unwrap();

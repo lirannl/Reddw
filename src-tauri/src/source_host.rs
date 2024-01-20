@@ -1,4 +1,5 @@
 use anyhow::{anyhow, bail, Result};
+use futures::StreamExt;
 use macros::command;
 use reddw_source_plugin::ReddwSourceHandle;
 use serde::{Deserialize, Serialize};
@@ -8,8 +9,9 @@ use std::{
     collections::HashMap,
     fs::read_dir,
     path::{Path, PathBuf},
+    time::Duration,
 };
-use tauri::{AppHandle, Manager};
+use tauri::{async_runtime::spawn, AppHandle, Manager};
 use tokio::{fs, sync::Mutex};
 use ts_rs::TS;
 
@@ -20,7 +22,7 @@ pub enum PluginHostMode {
     LowRAM,
 }
 
-use crate::{app_handle_ext::AppHandleExt, log::LogLevel};
+use crate::{app_handle_ext::AppHandleExt, log::LogLevel, watcher::watch_path};
 
 type PluginMap = HashMap<String, ReddwSourceHandle>;
 
@@ -49,39 +51,47 @@ pub async fn host_sources(app: AppHandle) -> Result<()> {
 
     app.manage::<SourcePlugins>(Mutex::new(plugins));
 
-    // let mut watcher = recommended_watcher(move |event: notify::Result<notify::Event>| {
-    //     let app = app.app_handle();
-    //     (|| -> Result<()> {
-    //         let event = event?;
-    //         let plugins = app.state::<SourcePlugins>();
-    //         let mut plugins = plugins.blocking_lock();
-    //         if event.kind.is_remove() || event.kind.is_modify() {
-    //             let names = plugins
-    //                 .iter_mut()
-    //                 .filter_map(|(_, plugin)| {
-    //                     if event.paths.contains(&plugin.path) {
-    //                         Some(plugin.name.clone())
-    //                     } else {
-    //                         None
-    //                     }
-    //                 })
-    //                 .collect::<Vec<_>>();
-    //             for name in names {
-    //                 plugins.remove(&name);
-    //             }
-    //         }
-    //         if event.kind.is_create() || event.kind.is_modify() {
-    //             for path in event.paths {
-    //                 block_on(load_plugin(app.app_handle(), path, &mut plugins))
-    //                     .map(|name| app.log(&format!("Loaded \"{name}\""), LogLevel::Info))
-    //                     .unwrap_or_else(|err| app.log(&err, LogLevel::Error));
-    //             }
-    //         }
-    //         Ok(())
-    //     })()
-    //     .unwrap_or_else(move |err| app.log(&err, LogLevel::Error));
-    // })?;
-    // watcher.watch(plugins_dir.as_path(), RecursiveMode::NonRecursive)?;
+    let mut watcher = watch_path(
+        app.app_handle(),
+        &plugins_dir,
+        notify::RecursiveMode::NonRecursive,
+        Duration::ZERO,
+    )
+    .await?;
+    spawn(async move {
+        while let Some(event) = watcher.next().await {
+            let sources = &app.state::<SourcePlugins>();
+            let mut sources = sources.lock().await;
+            if event.kind.is_remove() || event.kind.is_modify() {
+                let names = sources
+                    .iter_mut()
+                    .filter_map(|(_, plugin)| {
+                        if event.paths.contains(&plugin.path) {
+                            Some(plugin.name.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                for name in names {
+                    sources.remove(&name);
+                    let _ = app.emit_all("source_removed", name);
+                }
+            }
+            if event.kind.is_create() || event.kind.is_modify() {
+                for path in event.paths {
+                    if path.exists() {
+                        load_plugin(app.app_handle(), path, &mut sources)
+                            .await
+                            .map(|name| {
+                                let _ = app.emit_all("source_added", name);
+                            })
+                            .unwrap_or_else(|err| app.log(&err, LogLevel::Error));
+                    }
+                }
+            }
+        }
+    });
 
     Ok(())
 }

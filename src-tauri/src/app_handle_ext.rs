@@ -10,8 +10,8 @@ use crate::{
 };
 use anyhow::Result;
 use reddw_ipc::{IPCData, IPCMessage};
-use rmp_serde::from_slice;
 use serde::Deserialize;
+use serde_cbor::from_slice;
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use tokio::sync::watch::Receiver;
 

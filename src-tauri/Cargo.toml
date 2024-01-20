@@ -42,18 +42,18 @@ rand = "0.8.5"
 open = "3.2.0"
 chrono = { version = "0.4", features = ["serde"] }
 data-encoding = "2.3.3"
-rmp-serde = "1.1"
 rfd = {version = "0.10", default-features = false, features = ["xdg-portal"] }
 clap = { version = "4.2.1", features = ["derive"] }
 whoami = "1.4.0"
 hex = "0.4.3"
 lazy_static = "1.4"
 base64 = "0.21.0"
-rmp-futures = "0.3.2"
 futures = "0.3"
 winproc = "0.6"
 nix = { version = "0.27", features = ["signal"] }
 sha256 = "1.5"
+serde_cbor = "0.11"
+debounce = "0.2.2"
 
 [features]
 # by default Tauri runs in production mode

@@ -1,5 +1,5 @@
 import { AppConfig } from "$rs/AppConfig";
-// import { createStore } from "solid-js/store";
+import { ConfigUpdate } from "$rs/ConfigUpdate";
 import { invoke } from "@tauri-apps/api";
 import { listen } from "@tauri-apps/api/event";
 import { createResource } from "solid-js";
@@ -21,11 +21,11 @@ const [appConfig, { mutate }] = createResource<AppConfig>(async () => await invo
     }
 });
 export { appConfig };
-export const updateAppConfig = (appConfig: AppConfig) => {
-    invoke("set_config", { appConfig });
+export const updateConfig = async (update: ConfigUpdate) => {
+    await invoke("update_config", { update });
 }
-listen("config_changed", ({ payload }: { payload: AppConfig[] }) => {
-    mutate(payload.slice(-1)[0]);
+listen("config_changed", ({ payload }: { payload: AppConfig }) => {
+    mutate(payload);
 });
 
 // const configContext = createContext([undefined as any, () => {}] as ReturnType<typeof createStore<AppConfig>>);

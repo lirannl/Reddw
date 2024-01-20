@@ -849,6 +849,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2e66c9d817f1720209181c316d28635c050fa304f9c79e47a520882661b7308"
 
 [[package]]
+name = "debounce"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f2e5bc95e82bd8e9b333f4c5ff6dceab54e2e99f4d8cef2a680d417206ead34"
+
+[[package]]
 name = "der"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1034,17 +1040,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06c36cb11dbde389f4096111698d8b567c0720e3452fd5ac3e6b4e47e1939932"
 dependencies = [
  "thiserror",
-]
-
-[[package]]
-name = "enum-primitive-derive"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c375b9c5eadb68d0a6efee2999fef292f45854c3444c86f09d8ab086ba942b0e"
-dependencies = [
- "num-traits",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -2099,43 +2094,14 @@ dependencies = [
 
 [[package]]
 name = "io-plugin"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2200658b20f708e7bb23e9ed721b38b16e2c942b856a59bb3ef05d61fb840bc"
-dependencies = [
- "io-plugin-macros 0.4.3",
- "lazy_static",
- "serde",
- "serde_cbor",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "io-plugin"
 version = "0.6.0"
 dependencies = [
- "io-plugin-macros 0.6.0",
+ "io-plugin-macros",
  "lazy_static",
  "serde",
  "serde_cbor",
  "thiserror",
  "tokio",
-]
-
-[[package]]
-name = "io-plugin-macros"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54a4d33aa94d304fdcae6ecc85bd9dbbddffe03fc47356e00b51f8af58057484"
-dependencies = [
- "itertools 0.12.0",
- "lazy_static",
- "proc-macro2",
- "quote",
- "regex",
- "serde",
- "syn 2.0.48",
 ]
 
 [[package]]
@@ -3169,17 +3135,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "plugin_tester"
-version = "0.2.0"
-dependencies = [
- "io-plugin 0.4.3",
- "reddw-source-plugin",
- "rmp-serde",
- "serde",
- "tokio",
-]
-
-[[package]]
 name = "png"
 version = "0.17.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3395,6 +3350,7 @@ dependencies = [
  "chrono",
  "clap",
  "data-encoding",
+ "debounce",
  "futures",
  "hex",
  "lazy_static",
@@ -3408,9 +3364,8 @@ dependencies = [
  "reddw_ipc",
  "reqwest",
  "rfd",
- "rmp-futures",
- "rmp-serde",
  "serde",
+ "serde_cbor",
  "serde_json",
  "sha256",
  "sqlx",
@@ -3429,7 +3384,7 @@ name = "reddw-source-plugin"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "io-plugin 0.6.0",
+ "io-plugin",
  "serde",
  "sqlx",
  "ts-rs",
@@ -3632,21 +3587,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rmp-futures"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc9a69ca8b940ad2602a451b647912acba23242c70d261558791d7305e3b208"
-dependencies = [
- "byteorder",
- "enum-primitive-derive",
- "futures",
- "num-traits",
- "rmp",
- "rmpv",
- "slab",
-]
-
-[[package]]
 name = "rmp-serde"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3655,16 +3595,6 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
-]
-
-[[package]]
-name = "rmpv"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c760afe11955e16121e36485b6b828326c3f0eaff1c31758d96dbeb5cf09fd5"
-dependencies = [
- "num-traits",
- "rmp",
 ]
 
 [[package]]

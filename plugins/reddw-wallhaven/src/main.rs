@@ -66,14 +66,14 @@ impl ReddwSourceTrait<Parameters> for WallHavenSource {
         &mut self,
         id: String,
         parameters: Parameters,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<bool, Box<dyn Error>> {
         if id.contains("_") {
             Err(anyhow!(
                 "Invalid instance ID. Instance IDs cannot contain underscores"
             ))?
         }
-        self.instances.insert(id, parameters);
-        Ok(())
+        let overrode_existing = self.instances.insert(id, parameters).is_some();
+        Ok(overrode_existing)
     }
 
     async fn deregister_instance(&mut self, id: String) -> Result<(), Box<dyn Error>> {

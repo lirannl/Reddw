@@ -13,8 +13,6 @@ pub enum LogLevel {
 }
 
 pub fn log(app: &AppHandle, message: &dyn Display, level: LogLevel) {
-    #[cfg(debug_assertions)]
-    eprintln!("{level:?}: {message}");
     app.emit_all("log_message", (message.to_string(), level))
         .unwrap_or_default();
 }

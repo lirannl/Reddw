@@ -1,6 +1,15 @@
+use crate::{
+    app_handle_ext::AppHandleExt,
+    log::LogLevel,
+    // queue::manage_queue,
+    source_host::{PluginHostMode, SourcePlugins},
+    watcher::watch_path_sync,
+};
 use anyhow::{anyhow, Result};
+use futures::{StreamExt, TryFutureExt};
 use macros::command;
 use notify::RecursiveMode;
+use reddw_source_plugin::GenericValue;
 use rfd;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,18 +22,12 @@ use std::{
     time::Duration,
 };
 use tauri::{
-    async_runtime::{Mutex, Sender},
+    async_runtime::{spawn, Mutex, Sender},
     AppHandle, Manager,
 };
 use ts_rs::TS;
 
-use crate::{
-    app_handle_ext::AppHandleExt,
-    log::LogLevel,
-    // queue::manage_queue,
-    source_host::PluginHostMode,
-    watcher::watch_path,
-};
+const CONFIG_SYNC_DURATION: Duration = Duration::from_millis(25);
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(export)]
@@ -65,8 +68,7 @@ pub fn build(app: AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()>
     if !&config_dir.exists() {
         fs::create_dir_all(&config_dir)?;
     }
-    let config_path = Path::join(&config_dir, "config.json");
-    let config_path_clone = config_path.clone();
+    let config_path = app.get_config_path();
     if !config_path.exists() {
         let mut config = AppConfig::default();
         config.cache_dir = app
@@ -93,36 +95,82 @@ pub fn build(app: AppHandle, tx_interval: Sender<Duration>) -> tauri::Result<()>
         tx_interval
             .try_send(config.interval)
             .or(Err(tauri::Error::FailedToSendMessage))?;
+        app.manage(tx_interval);
         app.manage(Mutex::new(config.clone()));
     }
 
-    let _handle = watch_path(
+    let mut watch = watch_path_sync(
+        app.app_handle(),
         &config_path,
-        move |_, app| {
-            let tx_interval = tx_interval.clone();
-            let config_path = config_path_clone.clone();
-            Box::pin(async move {
-                let tx_interval = &tx_interval;
-                let config = serde_json::from_str::<AppConfig>(&read_to_string(&config_path)?)?;
-                let old_config = app.state::<Mutex<AppConfig>>().lock().await.clone();
-                if old_config.interval != config.interval {
-                    tx_interval
-                        .try_send(config.interval)
-                        .or_else(|e| Err(anyhow!("{:#?}", e)))?;
-                }
-                *app.state::<Mutex<AppConfig>>().lock().await = config.clone();
-                // if old_config.cache_dir != config.cache_dir {
-                //     manage_queue(&app).await.map_err(|err| anyhow!("{err:#?}"))?;
-                // }
-                app.emit_all("config_changed", vec![old_config, config])?;
-
-                Ok(())
-            })
-        },
-        app,
         RecursiveMode::NonRecursive,
+        CONFIG_SYNC_DURATION,
     )
     .map_err(|err| std::io::Error::other(err))?;
+    spawn(async move {
+        let app_clone = app.app_handle();
+        while let Some(_) = watch.next().await {
+            let app = app.app_handle();
+            let config_path = app.get_config_path();
+            (async move || {
+                let mut config = serde_json::from_str::<AppConfig>(&read_to_string(&config_path)?)?;
+                let old_config = app.get_config().await;
+                let removed = old_config
+                    .sources
+                    .iter()
+                    .filter(|(source, _)| !config.sources.contains_key(source.to_owned()))
+                    .map(|(s, v)| (s.to_owned(), v.to_owned()))
+                    .collect::<Vec<_>>();
+                let added = config
+                    .sources
+                    .iter()
+                    .filter(|(source, updated_source_config)| {
+                        if let Some(old_source) = old_config.sources.get(source.to_owned()) {
+                            old_source != updated_source_config.to_owned()
+                        } else {
+                            true
+                        }
+                    })
+                    .map(|(s, v)| (s.to_owned(), v.to_owned()))
+                    .collect::<Vec<_>>();
+
+                for (source, _) in removed {
+                    config = update_config(
+                        app.app_handle(),
+                        ConfigUpdate::RemoveSource(source.to_owned()),
+                    )
+                    .await?;
+                }
+
+                for (source, data) in added {
+                    config = update_config(
+                        app.app_handle(),
+                        ConfigUpdate::AddSource(
+                            source.to_owned(),
+                            GenericValue(serde_cbor::from_slice(&serde_json::to_vec(
+                                &data.to_owned(),
+                            )?)?),
+                        ),
+                    )
+                    .await?;
+                }
+
+                if old_config.interval != config.interval {
+                    config = update_config(
+                        app.app_handle(),
+                        ConfigUpdate::ChangeInterval {
+                            interval: config.interval,
+                        },
+                    )
+                    .await?;
+                }
+                app.emit_all("config_changed", &config)?;
+                *app.state::<Mutex<AppConfig>>().lock().await = config;
+                Ok(())
+            })()
+            .unwrap_or_else(|err: anyhow::Error| app_clone.log(&err, LogLevel::Error))
+            .await;
+        }
+    });
     Ok(())
 }
 
@@ -131,30 +179,101 @@ pub async fn get_config(app: AppHandle) -> AppConfig {
     app.get_config().await
 }
 
-#[command]
-pub async fn set_config(app: AppHandle, app_config: AppConfig) -> Result<()> {
-    let sources_old = app.get_config().await.sources;
-    let sources_new = &app_config.sources;
-    let (_added, removed) = (
-        sources_new
-            .iter()
-            .filter(|(k, _)| !sources_old.contains_key(k.to_owned())),
-        sources_old
-            .iter()
-            .filter(|(k, _)| !sources_new.contains_key(k.to_owned())),
-    );
-    for (source, _data) in removed {
-        if let Err(err) = query!("delete from queue where source = ?", source)
-            .execute(&app.db().await)
-            .await
-        {
-            app.log(&err, LogLevel::Error);
+pub async fn update_config(app: AppHandle, update: ConfigUpdate) -> Result<AppConfig> {
+    let current_config = app.get_config().await;
+    let updated_config = match update {
+        ConfigUpdate::Other(new_config) => AppConfig {
+            sources: current_config.sources,
+            interval: current_config.interval,
+            ..new_config
+        },
+        ConfigUpdate::AddSource(plugin_instance, params) => {
+            let (plugin, instance) = plugin_instance
+                .split_once('_')
+                .ok_or(anyhow!("Invalid source"))?;
+            let overrode = {
+                let sources = app.state::<SourcePlugins>();
+                let mut sources = sources.lock().await;
+                let source = sources.get_mut(plugin).ok_or(anyhow!("Invalid source"))?;
+                source
+                    .register_instance(instance.to_string(), params.clone())
+                    .await
+                    .map_err(|err| anyhow!("{err:#?}"))?
+            };
+            if overrode {
+                query!("delete from queue where source = ?", plugin_instance)
+                    .execute(&app.db().await)
+                    .await?;
+            }
+            let mut sources = current_config.sources;
+            sources.insert(
+                plugin_instance,
+                serde_json::from_slice(&serde_cbor::to_vec(&params.0)?)?,
+            );
+            AppConfig {
+                sources,
+                ..current_config
+            }
         }
-    }
+        ConfigUpdate::RemoveSource(plugin_instance) => {
+            let (plugin, instance) = plugin_instance
+                .split_once('_')
+                .ok_or(anyhow!("Invalid source"))?;
+            let sources = app.state::<SourcePlugins>();
+            let mut sources = sources.lock().await;
+            let source = sources.get_mut(plugin).ok_or(anyhow!("Invalid source"))?;
+            source
+                .deregister_instance(instance.to_string())
+                .await
+                .map_err(|err| anyhow!("{err:#?}"))?;
+            query!("delete from queue where source = ?", plugin_instance)
+                .execute(&app.db().await)
+                .await?;
+            let mut sources = current_config.sources;
+            sources.remove(&plugin_instance);
+            AppConfig {
+                sources,
+                ..current_config
+            }
+        }
+        ConfigUpdate::ChangeInterval { interval } => {
+            let tx_interval = app.state::<Sender<Duration>>();
+            tx_interval.send(interval).await?;
+            AppConfig {
+                interval,
+                ..current_config
+            }
+        }
+    };
+    Ok(updated_config)
+}
 
-    let config_json = serde_json::to_string_pretty(&app_config)?;
-    fs::write(app.get_config_path(), config_json)?;
-    Ok(())
+pub mod update_command {
+    use crate::{app_handle_ext::AppHandleExt, watcher::FileWatches};
+    use anyhow::{anyhow, Result};
+    use macros::command;
+    use notify::{RecursiveMode, Watcher};
+    use tauri::{AppHandle, Manager};
+
+    #[command]
+    pub async fn update_config(app: AppHandle, update: super::ConfigUpdate) -> Result<()> {
+        let updated = super::update_config(app.app_handle(), update)
+            .await
+            .map_err(|err| anyhow!("{err}"))?;
+        let watches = app.state::<FileWatches>();
+        let mut watches = watches.lock().await;
+        let config_path = app.get_config_path();
+        let mut watcher = watches.get_mut(&config_path);
+        if let Some(watcher) = &mut watcher {
+            watcher.unwatch(&config_path)?;
+        }
+        app.emit_all("config_changed", &updated)?;
+        tokio::fs::write(&config_path, serde_json::to_vec_pretty(&updated)?).await?;
+        if let Some(watcher) = watcher {
+            watcher.watch(&config_path, RecursiveMode::NonRecursive)?;
+        }
+        Ok(())
+    }
 }
 
 #[command]
@@ -164,4 +283,17 @@ pub async fn select_folder() -> Result<PathBuf> {
         .await
         .ok_or(anyhow!("No folder picked"))?;
     Ok(folder.path().to_path_buf())
+}
+
+#[derive(TS, Serialize, Deserialize, Clone)]
+#[ts(export)]
+pub enum ConfigUpdate {
+    AddSource(String, GenericValue),
+    RemoveSource(String),
+    ChangeInterval {
+        #[ts(type = "{secs: number, nanos: number}")]
+        interval: Duration,
+    },
+    /// Config changes which do not require special behaviour on the backend
+    Other(AppConfig),
 }
