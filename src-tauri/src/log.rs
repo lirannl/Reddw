@@ -1,18 +1,78 @@
-use std::fmt::Display;
-
-use serde::Serialize;
-use tauri::{AppHandle, Manager};
+use chrono::Local;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashSet, fmt::Display, path::PathBuf};
+use tauri::{async_runtime::spawn, AppHandle, Manager};
+use tokio::io::AsyncWriteExt;
 use ts_rs::TS;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, TS)]
+use crate::app_handle_ext::AppHandleExt;
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize, TS)]
 #[ts(export)]
+/// Log levels - in ascending order
 pub enum LogLevel {
+    Debug,
     Info,
     Error,
-    Debug,
 }
 
 pub fn log(app: &AppHandle, message: &dyn Display, level: LogLevel) {
-    app.emit_all("log_message", (message.to_string(), level))
-        .unwrap_or_default();
+    let message = message.to_string();
+    let app = app.app_handle();
+    spawn(async move {
+        let behaviours = app.get_config().await.logging;
+        for behaviour in behaviours {
+            match behaviour {
+                LogBehaviour::UIToast(min_level) => {
+                    if level < min_level {
+                        return;
+                    }
+                    app.emit_all("log_message", (message.to_string(), &level))
+                        .unwrap_or_default()
+                }
+                LogBehaviour::StdErr(min_level) => {
+                    if level < min_level {
+                        return;
+                    }
+                    eprintln!("{level:?}: {message}")
+                }
+                LogBehaviour::StdOut(min_level) => {
+                    if level < min_level {
+                        return;
+                    }
+                    println!("{level:?}: {message}")
+                }
+                LogBehaviour::File(path, min_level) => {
+                    if level < min_level {
+                        return;
+                    }
+                    let level = level.clone();
+                    let message = message.to_string();
+                    if let Ok(mut file) = tokio::fs::OpenOptions::new()
+                        .append(true)
+                        .create(true)
+                        .open(path)
+                        .await
+                    {
+                        let _ = file
+                            .write_all(
+                                format!("[{level:?}] {}: {message}", Local::now()).as_bytes(),
+                            )
+                            .await;
+                    };
+                }
+            }
+        }
+    });
 }
+
+#[derive(Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Debug, TS)]
+#[ts(export)]
+pub enum LogBehaviour {
+    UIToast(LogLevel),
+    File(PathBuf, LogLevel),
+    StdOut(LogLevel),
+    StdErr(LogLevel),
+}
+
+pub type LogBehaviours = HashSet<LogBehaviour>;

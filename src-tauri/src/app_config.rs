@@ -1,6 +1,6 @@
 use crate::{
     app_handle_ext::AppHandleExt,
-    log::LogLevel,
+    log::{LogLevel, LogBehaviours},
     // queue::manage_queue,
     source_host::{PluginHostMode, SourcePlugins},
     watcher::watch_path_sync,
@@ -45,6 +45,7 @@ pub struct AppConfig {
     pub plugins_dir: Option<PathBuf>,
     pub history_amount: i32,
     pub theme: String,
+    pub logging: LogBehaviours,
 }
 
 impl Default for AppConfig {
@@ -59,6 +60,7 @@ impl Default for AppConfig {
             plugin_host_mode: PluginHostMode::Daemon,
             theme: "default".to_string(),
             display_background: true,
+            logging: LogBehaviours::new(),
         }
     }
 }
