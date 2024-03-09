@@ -18,6 +18,8 @@ const [appConfig, { mutate }] = createResource<AppConfig>(async () => await invo
         theme: "default",
         plugin_host_mode: "Daemon",
         plugins_dir: null,
+        setter_command: null,
+        logging: [{ UIToast: "Info" }],
     }
 });
 export { appConfig };

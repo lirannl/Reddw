@@ -1,3 +1,5 @@
+// Intentionally not a typescript module
+
 interface Array<T> {
     equals(other: T[]): boolean;
 }

@@ -26,7 +26,7 @@ tauri = { version = "1.2.0", features = ["system-tray"] }
 reqwest = { version = "0.11.13", features = ["serde_json"] }
 wallpaper = { version = "3.2.0", features = ["reqwest"] }
 notify = { version = "6.0", features = ["serde"] }
-tokio = { version = "1.22.0", features = [
+tokio = { version = "1.22", features = [
     "time",
     "rt",
     "macros",
@@ -34,26 +34,28 @@ tokio = { version = "1.22.0", features = [
     "sync",
 ] }
 serde = { version = "1.0", features = ["derive"] }
-window-vibrancy = "0.3.1"
-mime_guess = "2.0.4"
+window-vibrancy = "0.3"
+mime_guess = "2.0"
 anyhow = "1.0"
 ts-rs = "6.2"
-rand = "0.8.5"
-open = "3.2.0"
+rand = "0.8"
+open = "3.2"
 chrono = { version = "0.4", features = ["serde"] }
-data-encoding = "2.3.3"
+data-encoding = "2.3"
 rfd = {version = "0.10", default-features = false, features = ["xdg-portal"] }
-clap = { version = "4.2.1", features = ["derive"] }
-whoami = "1.4.0"
-hex = "0.4.3"
+clap = { version = "4.2", features = ["derive"] }
+whoami = "1.4"
+hex = "0.4"
 lazy_static = "1.4"
-base64 = "0.21.0"
+base64 = "0.21"
 futures = "0.3"
 winproc = "0.6"
 nix = { version = "0.27", features = ["signal"] }
 sha256 = "1.5"
 serde_cbor = "0.11"
-debounce = "0.2.2"
+debounce = "0.2"
+regex = "1.10"
+regex-macro = "0.2.0"
 
 [features]
 # by default Tauri runs in production mode

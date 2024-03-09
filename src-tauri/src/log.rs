@@ -25,26 +25,26 @@ pub fn log(app: &AppHandle, message: &dyn Display, level: LogLevel) {
             match behaviour {
                 LogBehaviour::UIToast(min_level) => {
                     if level < min_level {
-                        return;
+                        continue;
                     }
                     app.emit_all("log_message", (message.to_string(), &level))
                         .unwrap_or_default()
                 }
                 LogBehaviour::StdErr(min_level) => {
                     if level < min_level {
-                        return;
+                        continue;
                     }
                     eprintln!("{level:?}: {message}")
                 }
                 LogBehaviour::StdOut(min_level) => {
                     if level < min_level {
-                        return;
+                        continue;
                     }
                     println!("{level:?}: {message}")
                 }
                 LogBehaviour::File(path, min_level) => {
                     if level < min_level {
-                        return;
+                        continue;
                     }
                     let level = level.clone();
                     let message = message.to_string();
@@ -56,7 +56,7 @@ pub fn log(app: &AppHandle, message: &dyn Display, level: LogLevel) {
                     {
                         let _ = file
                             .write_all(
-                                format!("[{level:?}] {}: {message}", Local::now()).as_bytes(),
+                                format!("[{level:?}] {}: {message}\n", Local::now().format("%Y/%m/%d %H:%M")).as_bytes(),
                             )
                             .await;
                     };

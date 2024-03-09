@@ -14,12 +14,16 @@ use sqlx::{query, query_as};
 use std::fmt::Display;
 use std::fs::{self, read_dir as read_dir_sync};
 use std::path::PathBuf;
+use std::process::Stdio;
+
 use std::str::FromStr;
 use std::time::Duration;
 use tauri::{
     async_runtime::{self, JoinHandle, Sender},
     AppHandle, Manager,
 };
+use tokio::io::{AsyncReadExt, BufReader};
+use tokio::process::Command;
 use tokio::{fs::read, time::interval};
 
 pub fn hash_url(this: &(impl Display + ?Sized)) -> String {
@@ -107,14 +111,42 @@ async fn update_wallpaper_internal(app_handle: AppHandle) -> Result<()> {
             .await
             .map(|p| cache_dir_clone.join(p))
     }?;
-
-    wallpaper::set_from_path(
-        wallpaper_path
-            .to_str()
-            .ok_or("Invalid path")
-            .map_err(|e| anyhow!("{e:#?}"))?,
-    )
-    .map_err(|e| anyhow!(e.to_string()))?;
+    if let Some(command) = config.setter_command
+        && let Some(wallpaper) = wallpaper_path.to_str()
+    {
+        #[cfg(target_family = "unix")] 
+        let (shell, arg, command) = ("bash", "-c", format!("export WP=\"{wallpaper}\" && {command}")); 
+        #[cfg(target_family = "windows")]
+        let (shell, arg, command) = ("powershell", "-Script", format!("$env:WP = '{wallpaper}'; {command}"));
+        let command = command.replace("'", "\\'");
+        let mut change_command = Command::new(shell)
+            .arg(arg)
+            .arg(command)
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let status = change_command.wait().await.map_err(|err| {
+            app_handle.log(&"Change command could not be executed", LogLevel::Error);
+            err
+        })?;
+        if status.success() {
+            let mut message = BufReader::new(change_command.stderr.unwrap());
+            let mut buf = String::new();
+            message.read_to_string(&mut buf).await?;
+            let buf = buf.trim();
+            if !buf.is_empty() {
+                app_handle.log(&format!("Change command error:\n{buf}"), LogLevel::Error);
+            }
+        }
+    }
+    else {
+        wallpaper::set_from_path(
+            wallpaper_path
+                .to_str()
+                .ok_or("Invalid path")
+                .map_err(|e| anyhow!("{e:#?}"))?,
+        )
+        .map_err(|e| anyhow!(e.to_string()))?;
+    }
 
     let now = chrono::Utc::now().naive_utc();
     query!(

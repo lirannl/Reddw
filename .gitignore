@@ -7,3 +7,4 @@ dist
 /target
 .vscode
 TODO
+.envrc

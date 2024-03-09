@@ -12,7 +12,7 @@ mod tray;
 mod wallpaper_changer;
 mod watcher;
 use crate::{
-    app_config::{get_config, select_folder, update_command::update_config},
+    app_config::{get_config, select_folder, select_file, update_command::update_config},
     queue::{cache_queue, get_queue, refresh_source_queue},
     source_host::{load_plugin_ui, query_available_source_plugins},
     wallpaper_changer::{get_wallpaper, set_wallpaper, update_wallpaper},
@@ -105,6 +105,7 @@ fn main() {
             cache_queue,
             get_queue,
             select_folder,
+            select_file,
             set_wallpaper,
             refresh_source_queue,
             get_wallpaper,

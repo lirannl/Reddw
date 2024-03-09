@@ -3,9 +3,11 @@ import { appConfig, updateConfig } from "../context/config"
 import Sources from "./Sources"
 import { AppConfig } from "$rs/AppConfig"
 import Range from "../components/Range";
+// import LogBehaviour from "./LogBehaviour";
 import { log } from "../Log";
 import { invoke } from "@tauri-apps/api";
 import { AiOutlineFolder } from "solid-icons/ai";
+// import { For } from "solid-js";
 
 const update = <Prop extends Exclude<keyof AppConfig, "interval" | "sources">, EventValue,
     Transformer extends ((v: EventValue) => AppConfig[Prop]) | undefined = undefined>
@@ -20,7 +22,6 @@ const update = <Prop extends Exclude<keyof AppConfig, "interval" | "sources">, E
         updateConfig({ Other: { ...appConfig(), [prop]: value } });
     }, 500);
 }
-
 export default () => {
     return <div class="card">
         <form class="card-body" onSubmit={e => { e.preventDefault() }}>
@@ -57,6 +58,21 @@ export default () => {
                     }}><AiOutlineFolder /></button>
                 </label>
             </div>
+            <div class="join">
+                <label class="join-item">
+                    Alternative changer command
+                    <input class="join-item input" value={appConfig().setter_command ?? ""}
+                        onInput={update("setter_command", (cmd: string) => cmd || null)} />
+                </label>
+            </div>
+            {/* <div class="join">
+                <label class="join-item">
+                    Logging behaviours
+                    <For each={[...appConfig()?.logging ?? [], undefined]}>{behaviour =>
+                        <LogBehaviour existing={behaviour} />
+                    }</For>
+                </label>
+            </div> */}
             <div class="collapse bg-base-200">
                 <input type="checkbox" />
                 <div class="collapse-title text-xl font-medium">

@@ -1,6 +1,6 @@
 use crate::{
     app_handle_ext::AppHandleExt,
-    log::{LogLevel, LogBehaviours},
+    log::{LogBehaviours, LogLevel},
     // queue::manage_queue,
     source_host::{PluginHostMode, SourcePlugins},
     watcher::watch_path_sync,
@@ -15,11 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::query;
 use std::{
-    collections::HashMap,
-    fmt::Debug,
-    fs::{self, read_to_string},
-    path::{Path, PathBuf},
-    time::Duration,
+    collections::HashMap, fs::{self, read_to_string}, path::{Path, PathBuf}, time::Duration
 };
 use tauri::{
     async_runtime::{spawn, Mutex, Sender},
@@ -45,7 +41,9 @@ pub struct AppConfig {
     pub plugins_dir: Option<PathBuf>,
     pub history_amount: i32,
     pub theme: String,
+    #[ts(skip)]
     pub logging: LogBehaviours,
+    pub setter_command: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -61,6 +59,7 @@ impl Default for AppConfig {
             theme: "default".to_string(),
             display_background: true,
             logging: LogBehaviours::new(),
+            setter_command: None,
         }
     }
 }
@@ -284,6 +283,15 @@ pub async fn select_folder() -> Result<PathBuf> {
         .pick_folder()
         .await
         .ok_or(anyhow!("No folder picked"))?;
+    Ok(folder.path().to_path_buf())
+}
+
+#[command]
+pub async fn select_file() -> Result<PathBuf> {
+    let folder = rfd::AsyncFileDialog::new()
+        .pick_file()
+        .await
+        .ok_or(anyhow!("No file picked"))?;
     Ok(folder.path().to_path_buf())
 }
 
