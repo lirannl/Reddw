@@ -10,18 +10,22 @@ function App() {
     document.documentElement.dataset.theme = config.theme;
   }));
 
-return (
-  <>
-    <Config />
-    <Log />
-    <div class="card">
-      <div class="card-body">
-        <button class="btn btn-primary" onClick={() => invoke("update_wallpaper")}>Update wallpaper</button>
-        <button class="btn btn-warning" onClick={() => invoke("exit")}>Quit</button>
+  return (
+    <div class="flex flex-col h-full">
+      <div class="flex-auto overflow-y-auto">
+        <Config />
       </div>
+      <div class="flex-initial">
+        <div class="card">
+          <div class="card-body">
+            <button class="btn btn-primary" onClick={() => invoke("update_wallpaper")}>Update wallpaper</button>
+            <button class="btn btn-warning" onClick={() => invoke("exit")}>Quit</button>
+          </div>
+        </div>
+      </div>
+      <Log />
     </div>
-  </>
-)
+  )
 };
 
 export default App;

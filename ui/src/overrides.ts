@@ -1,6 +1,28 @@
 import { invoke as tauri_invoke } from "@tauri-apps/api"
 import { log } from "./Log";
 import { LogBehaviour } from "$rs/LogBehaviour";
+
+const callbackTokens = new Map<Function, number>();
+/**
+ * Only call the given {@link callback} if an attempt to call it hasn't been made in the last {@link wait} ms
+ * @returns The result of the {@link callback} call that actually occurred (all other attempts won't occur)
+ */
+export const debounce = <CB extends (...p: any[]) => any>(callback: CB, wait: number = 500) =>
+    (...pars: Parameters<CB>) => new Promise<ReturnType<CB>>((resolve, reject) => {
+
+        const cancellationToken = callbackTokens.get(callback);
+
+        if (typeof cancellationToken === "number")
+            clearTimeout(cancellationToken);
+
+        callbackTokens.set(callback, setTimeout(() => {
+            try {
+                resolve(callback(...pars));
+            }
+            catch (e) { reject(e) }
+        }, wait))
+    });
+
 export const invoke = async <T>(...params: Parameters<typeof tauri_invoke<T>>) => {
     try {
         return tauri_invoke<T>(...params)

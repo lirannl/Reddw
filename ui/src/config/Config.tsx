@@ -1,4 +1,4 @@
-import { debounce } from "@solid-primitives/scheduled"
+import { debounce } from "../overrides";
 import { appConfig, updateConfig } from "../context/config"
 import Sources from "./Sources"
 import { AppConfig } from "$rs/AppConfig"
@@ -7,6 +7,8 @@ import Range from "../components/Range";
 import { log } from "../Log";
 import { invoke } from "@tauri-apps/api";
 import { AiOutlineFolder } from "solid-icons/ai";
+import DurationEditor from "./DurationEditor";
+import { ConfigUpdate } from "$rs/ConfigUpdate";
 // import { For } from "solid-js";
 
 const update = <Prop extends Exclude<keyof AppConfig, "interval" | "sources">, EventValue,
@@ -20,12 +22,21 @@ const update = <Prop extends Exclude<keyof AppConfig, "interval" | "sources">, E
         }
         else value = event;
         updateConfig({ Other: { ...appConfig(), [prop]: value } });
-    }, 500);
+    });
 }
 export default () => {
+    const updateInterval = (v: AppConfig["interval"]) => {
+        invoke("update_config", { update: { ChangeInterval: { interval: v } } satisfies ConfigUpdate });
+    };
     return <div class="card">
         <form class="card-body" onSubmit={e => { e.preventDefault() }}>
             <Range label="Cache size" value={appConfig().cache_size} max={10000} min={10} unit="MB" onInput={update("cache_size")} />
+            <div class="join w-full pr-12">
+                <label class="join-item w-full">
+                    Change interval:
+                    <DurationEditor value={appConfig().interval} onInput={debounce(updateInterval)} />
+                </label>
+            </div>
             <div class="join">
                 <label class="join-item">
                     Theme

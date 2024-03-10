@@ -51,7 +51,6 @@ export default () => {
             if (item instanceof CSSStyleSheet)
                 sourceConfig.shadowRoot?.adoptedStyleSheets.push(item);
         });
-        // sourceConfig.addEventListener("change", console.log);
         sourceConfig.addEventListener("input", async e => {
             if (!(e instanceof CustomEvent) || !plugin_instance) return;
             const currentConfig = appConfig();
